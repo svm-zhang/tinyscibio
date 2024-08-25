@@ -25,4 +25,4 @@ def check_existence(
     path = parse_path(path)
 
     if not path.exists():
-        raise FileNotFoundError("Found no file or directory at given path {path}")
+        raise FileNotFoundError(f"Found no file or directory at given path {path}")
