@@ -4,7 +4,7 @@ import httpx
 
 
 def run_httpx_get(
-    url: httpx.URL | str, params: dict[str, str], headers: httpx.Headers
+    url: httpx.URL | str, params: dict[str, str], headers: httpx._types.HeaderTypes
 ) -> httpx.Response:
     try:
         r = httpx.get(url=url, params=params, headers=headers)
