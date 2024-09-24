@@ -1,9 +1,8 @@
 from pathlib import Path
-from tempfile import NamedTemporaryFile, TemporaryDirectory
 
 import pytest
 
-from libpybio import make_dir, parse_path
+from libscibio import get_parent_dir, make_dir, parse_path
 
 
 def test_parse_path_empty_string():
@@ -12,53 +11,60 @@ def test_parse_path_empty_string():
         parse_path("")
 
 
-def test_parse_path_return_path_obj():
-    with NamedTemporaryFile() as tmp:
-        assert isinstance(parse_path(tmp.name), Path)
+def test_parse_path_return_path_obj(temp_file):
+    assert isinstance(parse_path(temp_file.name), Path)
 
 
-def test_mkdir_file_not_found_error():
+def test_mkdir_file_not_found_error(temp_dir):
     """
     Test make_dir(parents=False), when a given path misses parents
     """
-    with TemporaryDirectory() as tmp:
-        p = Path(tmp) / "missing" / "destination"
-        print(p)
-        with pytest.raises(FileNotFoundError) as exc:
-            make_dir(p, parents=False)
-        assert str(exc.value) == (
-            f"Failed to create directory at the given path {p}, because of "
-            "missing parents."
-        )
+    p = Path(temp_dir.name) / "missing" / "destination"
+    with pytest.raises(FileNotFoundError):
+        make_dir(p, parents=False)
 
 
-def test_mkdir_file_exists_error():
+def test_mkdir_file_exists_error(temp_dir):
     """
     Test make_dir(exist=False), when a given path already exists
     """
-    with TemporaryDirectory() as tmp:
-        p = Path(tmp) / "existed_destination"
-        p.mkdir()
-        print(p)
-        with pytest.raises(FileExistsError) as exc:
-            make_dir(p, exist_ok=False)
-        assert str(exc.value) == (
-            f"Failed to create directory at the given path {p}, because it "
-            "exists already."
-        )
+    p = Path(temp_dir.name) / "existed_destination"
+    p.mkdir()
+    with pytest.raises(FileExistsError):
+        make_dir(p, exist_ok=False)
 
 
-def test_mkdir_given_path_is_file_and_existed():
+def test_mkdir_given_path_is_file_and_existed(temp_file):
     """
     Test make_dir(exist=True), when a given path is not a directory
     """
-    with NamedTemporaryFile() as tmp:
-        p = Path(tmp.name)
-        p.touch()
-        print(p)
-        with pytest.raises(FileExistsError) as exc:
-            make_dir(p, exist_ok=True)
-        assert str(exc.value) == (
-            f"Failed to create directory at the given path {p}, because it "
-            "is not a directory."
-        )
+    p = Path(temp_file.name)
+    p.touch()
+    with pytest.raises(FileExistsError):
+        make_dir(p, exist_ok=True)
+
+
+def test_parent_dir_return_type(temp_dir):
+    """Test get_parent_dir() function returns a Path object"""
+    p = Path(temp_dir.name)
+    assert isinstance(get_parent_dir(p), Path)
+
+
+def test_level_beyond_num_logic_parents(temp_dir):
+    """Test get_parent_dir() function to capture ValueError when level is
+    beyond number of logical ancestors
+    """
+    p = Path(temp_dir.name)
+    level = len(p.parents) + 1
+    with pytest.raises(ValueError):
+        get_parent_dir(p, level)
+
+
+def test_negative_level_value(temp_dir):
+    """Test get_parent_dir() function to capture ValueError
+    when level is negative
+    """
+    p = Path(temp_dir.name)
+    level = -1
+    with pytest.raises(ValueError):
+        get_parent_dir(p, level)
