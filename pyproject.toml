@@ -1,12 +1,12 @@
 [project]
-name = "libpybio"
-version = "0.1.0"
+name = "libscibio"
+version = "0.1.1"
 description = "Add your description here"
 authors = [
-    { name = "simo", email = "svm.zhang@gmail.com" }
+    { name = "Simo", email = "svm.zhang@gmail.com" }
 ]
 dependencies = [
-    "httpx>=0.27.2",
+    "requests>=2.32.3",
 ]
 readme = "README.md"
 requires-python = ">= 3.8"
@@ -21,10 +21,22 @@ dev-dependencies = [
     "pytest>=8.3.3",
     "pytest-cov>=5.0.0",
     "mypy>=1.11.2",
+    "types-requests>=2.32.0.20240914",
 ]
+
+[tool.coverage.report]
+exclude_lines = ["pragma: no cover", "@pytest.mark.skip"]
+
+[tool.coverage.run]
+source = ["libscibio"]
+omit = ["tests/*"]
+
+[tool.pytest.ini_options]
+pythonpath="src"
+addopts = "--cov=libscibio --cov-report=term-missing"
 
 [tool.hatch.metadata]
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/libpybio"]
+packages = ["src/libscibio"]
