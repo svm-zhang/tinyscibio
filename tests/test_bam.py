@@ -83,6 +83,20 @@ def bam_header_zero_sq():
     }
 
 
+@pytest.fixture
+def bam_header_missing_sn_or_ln():
+    return {
+        "HD": {"SO": "unsorted"},
+        "RG": [{"ID": "RG1", "SM": "Sample1"}],
+        "SQ": [
+            {
+                "SN": "chr1",
+            },
+            {"LN": "2000"},
+        ],
+    }
+
+
 def init_mock_alignment_file(monkeypatch, header=None):
     def _mock_alignment_file(fspath, mode, header=header):
         return MockAlignmentFile(fspath, mode, header)
@@ -115,6 +129,14 @@ def test_bametadata_on_header_without_rg(monkeypatch, bam_header_no_rg):
     init_mock_alignment_file(monkeypatch, bam_header_no_rg)
     assert BAMetadata("test.bam").read_groups == []
     assert len(BAMetadata("test.bam").read_groups) == 0
+
+
+def test_bametadata_on_header_missing_sn_or_ln(
+    monkeypatch, bam_header_missing_sn_or_ln
+):
+    init_mock_alignment_file(monkeypatch, bam_header_missing_sn_or_ln)
+    with pytest.raises(IndexError):
+        BAMetadata("test.bam")
 
 
 def test_bametadata_coordinate_sorted(
