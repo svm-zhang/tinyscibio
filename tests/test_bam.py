@@ -168,6 +168,8 @@ def test_bametadata_repr(monkeypatch, bam_header_no_rg):
         ("10A3T0T10", ["10", "A", "3", "T", "0", "T", "10"]),
         ("85^A16", ["85", "^A", "16"]),
         ("100", ["100"]),
+        ("0A", ["0", "A"]),
+        ("10^AC41G49", ["10", "^AC", "41", "G", "49"]),
         (
             "6G4C20G1A5C5A1^C3A15G",
             [
@@ -200,6 +202,12 @@ def test_parse_md(md, expect):
 def test_parse_md_empty_str():
     with pytest.raises(ValueError):
         parse_md("")
+
+
+@pytest.mark.parametrize("bad_md", ["A", "^A", "10AA31"])
+def test_parse_md_bad_str(bad_md):
+    with pytest.raises(ValueError):
+        parse_md(bad_md)
 
 
 @pytest.mark.parametrize(
