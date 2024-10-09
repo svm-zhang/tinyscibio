@@ -2,6 +2,7 @@ import itertools
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, Union
 
 import pysam
@@ -38,9 +39,11 @@ class BAMetadata:
     def _parse_references(self, header: dict[str, Any]) -> None:
         """Parse references from the header"""
         sqs = header.get("SQ", [])
+
         if not sqs:
             raise IndexError("No sequence information found in the header")
 
+        # FIXME: need to check if missing LN exists
         self.references = [
             {s["SN"]: int(s["LN"])} for s in sqs if "SN" in s and "LN" in s
         ]
@@ -69,19 +72,23 @@ class BAMetadata:
         return [k for r in self.references for k in r.keys()]
 
 
-def parse_cigar(
-    cigar: str,
-) -> list[tuple[int, str]]:
+class AlignmentStrPattern(Enum):
+    CIGAR = "([0-9]+)([MIDNSHP=X])"
+
+
+def parse_cigar(cigar: str) -> list[tuple[str, str]]:
     if not cigar:
         raise ValueError("Cannot parse empty CIGAR string")
 
-    cigar_iter = itertools.groupby(cigar, lambda k: k.isdigit())
-    cigar_parsed = [
-        (int("".join(n)), "".join(next(cigar_iter)[1])) for _, n in cigar_iter
-    ]
+    cigar_parsed = re.findall(AlignmentStrPattern.CIGAR.value, cigar)
+
     if not cigar_parsed:
         raise ValueError(
             f"CIGAR string {cigar} failed to be parsed. Empty list returned"
+        )
+    if "".join(["".join(k) for k in cigar_parsed]) != cigar:
+        raise ValueError(
+            f"Failed to reconstruct {cigar_parsed=} back to original {cigar=}"
         )
     return cigar_parsed
 
@@ -90,59 +97,51 @@ def parse_md(md: str) -> list[str]:
     if not md:
         raise ValueError("Cannot parse empty MD string")
 
+    # TODO: print out this one by one to understand better
+    # md_parsed should never be empty in this case
     md_iter = itertools.groupby(md, lambda k: k.isalpha() or not k.isalnum())
     md_parsed = ["".join(group) for c, group in md_iter if not c or group]
-    if not md_parsed:
-        raise ValueError(
-            f"MD string {md} failed to be parsed. Empty list returned"
-        )
+    # if not md_parsed:
+    #     raise ValueError(
+    #         f"MD string {md} failed to be parsed. Empty list returned"
+    #     )
     return md_parsed
 
 
-def count_soft_clip_bases(cigar: str) -> int:
-    pattern = re.compile(
-        "^(?:(?P<ls>[0-9]+)S)?(?:[0-9]+[MIDNHP=X])+(?:(?P<rs>[0-9]+)S)?$"
-    )
-    m = pattern.search(cigar)
-    if m is None:
-        return 0
-    n_sc = 0
-    if m.group("ls") is not None:
-        n_sc += int(m.group("ls"))
-    if m.group("rs") is not None:
-        n_sc += int(m.group("rs"))
-
-    return n_sc
+def count_soft_clip_bases(cigar: Union[str, Sequence[tuple[str, str]]]) -> int:
+    if isinstance(cigar, str):
+        cigar = parse_cigar(cigar)
+    return sum([int(c) for c, op in cigar if op == "S"])
 
 
 def count_unaligned_events(
-    cigar: Union[str, Sequence[tuple[int, str]]],
+    cigar: Union[str, Sequence[tuple[str, str]]],
 ) -> int:
+    """
+    Count the number of unaligned events in the given CIGAR string.
+    Unaligned events include: I, D, S, and H
+    """
     if isinstance(cigar, str):
         cigar = parse_cigar(cigar)
-    elif isinstance(cigar, list):
-        pass
-    else:
-        raise TypeError(
-            "cigar parameter must be either str or list[tuple[int, str]] type"
-        )
-    return len([op for _, op in cigar if op in ["I", "D", "S"]])
+    return len([op for _, op in cigar if op in ["I", "D", "S", "H"]])
 
 
-def count_indel_events(cigar: str) -> int:
+def count_indel_events(cigar: Union[str, Sequence[tuple[str, str]]]) -> int:
     """Count the number of Is and Ds event in the given cigar string"""
-    cigar_iter = itertools.groupby(cigar, lambda k: k.isalpha())
-    aln_events = ["".join(grpv) for grpk, grpv in cigar_iter if grpk]
-    return len([e for e in aln_events if e in ["I", "D"]])
+    if isinstance(cigar, str):
+        cigar = parse_cigar(cigar)
+    return len([op for _, op in cigar if op in ["I", "D"]])
+
+
+def count_indel_bases(cigar: Union[str, Sequence[tuple[str, str]]]) -> int:
+    """Count the length of indels in the given CIGAR string"""
+    if isinstance(cigar, str):
+        cigar = parse_cigar(cigar)
+    return sum([int(c) for c, op in cigar if op in ["I", "D"]])
 
 
 def count_mismatch_events(md: Union[str, Sequence[str]]) -> int:
+    """Count the number of mismatch events in the given MD string"""
     if isinstance(md, str):
         md = parse_md(md)
-    elif isinstance(md, list):
-        pass
-    else:
-        raise TypeError(
-            "md parameter must be either str or list[tuple[int, str]] type"
-        )
     return len([e for e in md if e.isalpha()])
