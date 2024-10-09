@@ -219,14 +219,42 @@ def test_count_unaligned_events(cigar, expect):
     assert count_unaligned_events(parse_cigar(cigar)) == expect
 
 
+@pytest.mark.parametrize(
+    "cigar, expect",
+    [
+        ("89M1I11M", [("89", "M"), ("1", "I"), ("11", "M")]),
+        ("27S73M", [("27", "S"), ("73", "M")]),
+        (
+            "45M1D27M1I20M5H",
+            [
+                ("45", "M"),
+                ("1", "D"),
+                ("27", "M"),
+                ("1", "I"),
+                ("20", "M"),
+                ("5", "H"),
+            ],
+        ),
+        ("49=2D5X6=", [("49", "="), ("2", "D"), ("5", "X"), ("6", "=")]),
+        ("27M351N11M", [("27", "M"), ("351", "N"), ("11", "M")]),
+    ],
+)
+def test_parse_cigar(cigar, expect):
+    assert parse_cigar(cigar) == expect
+
+
 def test_parse_cigar_empty_str():
     with pytest.raises(ValueError):
         parse_cigar("")
 
 
-def test_parse_bad_cigar_str():
+@pytest.mark.parametrize(
+    "cigar",
+    ["SDIMMM", "=101", "101", "SDI18MM2H"],
+)
+def test_parse_bad_cigar_str(cigar):
     with pytest.raises(ValueError):
-        parse_cigar("SDIMMMMM")
+        parse_cigar(cigar)
 
 
 @pytest.mark.parametrize(
