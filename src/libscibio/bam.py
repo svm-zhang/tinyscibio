@@ -43,10 +43,18 @@ class BAMetadata:
         if not sqs:
             raise IndexError("No sequence information found in the header")
 
-        # FIXME: need to check if missing LN exists
         self.references = [
             {s["SN"]: int(s["LN"])} for s in sqs if "SN" in s and "LN" in s
         ]
+
+        # if some references does not have SN and LN info,
+        # they will not be read in the self.references
+        # the check below fails if some references are missing due to this
+        if len(self.references) != len(sqs):
+            raise IndexError(
+                "Missing reference sequences in 'self.references', "
+                "likely due to missing SN or LN keys"
+            )
 
     def _check_bai(self) -> None:
         """Check if index file exists for the coordinate-sorted BAM"""
