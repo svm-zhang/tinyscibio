@@ -72,15 +72,11 @@ class BAMetadata:
         return [k for r in self.references for k in r.keys()]
 
 
-class AlignmentStrPattern(Enum):
-    CIGAR = "([0-9]+)([MIDNSHP=X])"
-
-
 def parse_cigar(cigar: str) -> list[tuple[str, str]]:
     if not cigar:
         raise ValueError("Cannot parse empty CIGAR string")
 
-    cigar_parsed = re.findall(AlignmentStrPattern.CIGAR.value, cigar)
+    cigar_parsed = re.findall("([0-9]+)([MIDNSHP=X])", cigar)
 
     if not cigar_parsed:
         raise ValueError(
@@ -97,14 +93,27 @@ def parse_md(md: str) -> list[str]:
     if not md:
         raise ValueError("Cannot parse empty MD string")
 
-    # TODO: print out this one by one to understand better
-    # md_parsed should never be empty in this case
+    # this to make sure MD string start with digit
+    if not md[:1].isdigit():
+        raise ValueError(
+            f"Invalid MD string {md=}. MD string should always start "
+            "with digit"
+        )
+
     md_iter = itertools.groupby(md, lambda k: k.isalpha() or not k.isalnum())
     md_parsed = ["".join(group) for c, group in md_iter if not c or group]
-    # if not md_parsed:
-    #     raise ValueError(
-    #         f"MD string {md} failed to be parsed. Empty list returned"
-    #     )
+    # below is to handle bad CIGAR such as 10AA90.
+    # Such string can mean either 10^AA90 or 10A0A90
+    # I artificially added the ^ to make it become ^AA
+    # I then fail the function by comparing reconstructed to original
+    # Will update if I have better solution
+    md_parsed = [
+        f"^{k}" if k.isalpha() and len(k) > 1 else k for k in md_parsed
+    ]
+    if "".join(md_parsed) != md:
+        raise ValueError(
+            f"Failed to reconstruct {md_parsed=} back to original {md=}"
+        )
     return md_parsed
 
 
