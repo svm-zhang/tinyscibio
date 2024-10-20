@@ -27,6 +27,8 @@ packaging==24.1
     # via pytest
 pluggy==1.5.0
     # via pytest
+pysam==0.22.1
+    # via libscibio
 pytest==8.3.3
     # via pytest-cov
 pytest-cov==5.0.0
