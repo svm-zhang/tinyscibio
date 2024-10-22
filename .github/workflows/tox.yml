@@ -21,9 +21,14 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install Rye project manager
         uses: eifinger/setup-rye@v4
+      - name: Pin python version ${{ matrix.py }}
+        run: |
+          rye pin ${{ matrix.py }}
+          rye sync
       - name: Install tox tox-gh-actions dependencies
         run: |
           rye add tox --dev
           rye add tox-gh-actions --dev
+          rye sync
       - name: Run checks with tox
-        run: rye run tox
+        run: rye run tox -e py
