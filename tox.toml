@@ -1,0 +1,23 @@
+requires = ["tox>=4.23"]
+env_list = ["3.10", "type"]
+skip_missing_interpreters = true
+
+[env_run_base]
+description = "run pytest under {env_name}"
+dependency_groups = ["test"]
+commands = [
+  [
+    "pytest",
+    "--cov-config",
+    "{tox_root}{/}pyproject.toml",
+  ]
+]
+
+[env.type]
+description = "Run type checker on code base"
+dependency_groups = ["type"]
+commands = [
+  [
+    "mypy", "src{/}libscibio"
+  ]
+]
