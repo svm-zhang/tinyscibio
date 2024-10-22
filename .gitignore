@@ -11,3 +11,7 @@ wheels/
 
 # pytest-cov
 .coverage
+
+.DS_Store
+
+.tox/
