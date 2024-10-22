@@ -1,0 +1,29 @@
+name: tox
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  tox:
+    name: run checks with ${{ matrix.py }} on ${{ matrix.os }} using tox
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        py: ["3.11", "3.10"]
+        os: ["ubuntu-latest"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rye project manager
+        uses: eifinger/setup-rye@v4
+      - name: Install tox tox-gh-actions dependencies
+        run: |
+          rye add tox --dev
+          rye add tox-gh-actions --dev
+      - name: Run checks with tox
+        run: rye run tox
