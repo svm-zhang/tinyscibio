@@ -1,26 +1,57 @@
-[project]
-name = "libscibio"
-version = "0.1.1"
-description = "Add your description here"
-authors = [
-    { name = "Simo", email = "svm.zhang@gmail.com" }
+[build-system]
+build-backend = "hatchling.build"
+requires = [
+  "hatchling", "hatch-vcs"
 ]
+
+[project]
+name = "tinyscibio"
+description = "tinyscibio provides convenient shortcut functions to boost daily bioinformatics work."
+readme = {file = "README.md", content-type = "text/markdown"}
+keywords = [
+  "bioinformatics",
+  "genomics",
+  "sequencing"
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: POSIX",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Bio-Informatics",
+  "Topic :: Software Development :: Libraries"
+]
+urls.Source = "https://github.com/svm-zhang/tinyscibio"
+urls.Documentation = "https://svm-zhang.github.io/tinyscibio/"
+urls.Issues = "https://github.com/svm-zhang/tinyscibio/issues"
+license = "MIT"
+authors = [
+    { name = "Simo Zhang", email = "svm.zhang@gmail.com" }
+]
+maintainers = [
+    { name = "Simo Zhang", email = "svm.zhang@gmail.com" }
+]
+dynamic = ["version"]
 dependencies = [
     "requests>=2.32.3",
     "pysam>=0.22.1",
 ]
-readme = "README.md"
 requires-python = ">= 3.8"
 
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-[tool.hatch.metadata]
-allow-direct-references = true
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/libscibio"]
+[tool.hatch]
+metadata.allow-direct-references = true
+build.targets.sdist.include = [
+  "/src",
+  "/tests",
+  "/tox.ini"
+]
+build.hooks.vcs.version-file = "src/tinyscibio/_version.py"
+build.targets.wheel.packages = ["src/tinyscibio"]
+version.source = "vcs"
 
 [tool.rye]
 managed = true
