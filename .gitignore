@@ -12,6 +12,11 @@ wheels/
 # pytest-cov
 .coverage
 
+# on Mac
 .DS_Store
 
+# virtual envs created by tox
 .tox/
+
+# auto generated version file during package build
+_version.py
