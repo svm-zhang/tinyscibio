@@ -10,12 +10,25 @@
 #   universal: false
 
 -e file:.
+cachetools==5.5.0
+    # via tox
 certifi==2024.7.4
     # via requests
+chardet==5.2.0
+    # via tox
 charset-normalizer==3.3.2
     # via requests
-coverage==7.6.1
+colorama==0.4.6
+    # via tox
+coverage==7.6.4
     # via pytest-cov
+distlib==0.3.9
+    # via virtualenv
+exceptiongroup==1.2.2
+    # via pytest
+filelock==3.16.1
+    # via tox
+    # via virtualenv
 idna==3.8
     # via requests
 iniconfig==2.0.0
@@ -24,9 +37,17 @@ mypy==1.11.2
 mypy-extensions==1.0.0
     # via mypy
 packaging==24.1
+    # via pyproject-api
     # via pytest
+    # via tox
+platformdirs==4.3.6
+    # via tox
+    # via virtualenv
 pluggy==1.5.0
     # via pytest
+    # via tox
+pyproject-api==1.8.0
+    # via tox
 pysam==0.22.1
     # via libscibio
 pytest==8.3.3
@@ -34,9 +55,21 @@ pytest==8.3.3
 pytest-cov==5.0.0
 requests==2.32.3
     # via libscibio
+tomli==2.0.2
+    # via coverage
+    # via mypy
+    # via pyproject-api
+    # via pytest
+    # via tox
+tox==4.23.0
+    # via tox-gh-actions
+tox-gh-actions==3.2.0
 types-requests==2.32.0.20240914
 typing-extensions==4.12.2
     # via mypy
+    # via tox
 urllib3==2.2.3
     # via requests
     # via types-requests
+virtualenv==20.27.0
+    # via tox
