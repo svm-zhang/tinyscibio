@@ -1,3 +1,4 @@
-# libpybio
+# tinyscibio
 
-Describe your project here.
+tinyscibio provides convenient shortcut functions to boost daily bioinformatics
+work.
