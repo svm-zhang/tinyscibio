@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from libscibio import get_parent_dir, make_dir, parse_path
+from tinyscibio import get_parent_dir, make_dir, parse_path
 
 
 def test_parse_path_empty_string():

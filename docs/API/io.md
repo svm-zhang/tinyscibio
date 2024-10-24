@@ -1,6 +1,6 @@
 # I/O module
 
-::: libscibio._io
+::: tinyscibio._io
     options:
         members:
             - parse_path

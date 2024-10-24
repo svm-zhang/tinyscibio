@@ -14,18 +14,18 @@ def parse_path(path: _PathLike) -> Path:
     strings passed in from command line.
 
     Examples:
-        >>> from libscibio import parse_path
+        >>> from tinyscibio import parse_path
         >>> p = "/home/user1/project"
         >>> parse_path(p)
         Path("/home/user1/project")
 
         >>> from pathlib import Path
-        >>> from libscibio import parse_path
+        >>> from tinyscibio import parse_path
         >>> p_obj = Path("/home/user1/project")
         >>> parse_path(p_obj)
         Path("/home/user1/project")
 
-        >>> from libscibio import parse_path
+        >>> from tinyscibio import parse_path
         >>> import argparse
         >>> parser = argparse.ArgumentParser()
         >>> parser.add_argument(
@@ -67,7 +67,7 @@ def make_dir(
     Create a directory at the specified location.
 
     Examples:
-        >>> from libscibio import make_dir
+        >>> from tinyscibio import make_dir
         >>> p = "/home/user1/projects"
         >>> make_dir(p, parents=True, exist_ok=True)
 
@@ -117,7 +117,7 @@ def get_parent_dir(path: _PathLike, level: int = 0) -> Path:
     Setting a level=0 means return the given path.
 
     Examples:
-        >>> from libscibio import get_parent_dir
+        >>> from tinyscibio import get_parent_dir
         >>> p = "/home/user1/projects"
         >>> get_parent_dir(p, level=1)
         Path("/home/user1/")

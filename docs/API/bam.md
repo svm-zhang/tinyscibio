@@ -1,6 +1,6 @@
 # Module dealing with anything related to BAM file
 
-::: libscibio.bam
+::: tinyscibio.bam
     options:
         filters:
             - "!^_"

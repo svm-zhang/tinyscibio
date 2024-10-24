@@ -49,12 +49,12 @@ pluggy==1.5.0
 pyproject-api==1.8.0
     # via tox
 pysam==0.22.1
-    # via libscibio
+    # via tinyscibio
 pytest==8.3.3
     # via pytest-cov
 pytest-cov==5.0.0
 requests==2.32.3
-    # via libscibio
+    # via tinyscibio
 tomli==2.0.2
     # via coverage
     # via mypy

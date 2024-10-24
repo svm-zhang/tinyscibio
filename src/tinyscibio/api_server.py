@@ -36,7 +36,7 @@ def request_api_server(
         query once per day. The specific variant used here is from
         https://api.varsome.com/.
 
-        >>> from libscibio import request_api_server
+        >>> from tinyscibio import request_api_server
         >>> api_server_url = "https://api.varsome.com/lookup/"
         >>> qry = "15-73027478-T-C"
         >>> lookup_path = f"{api_server_url}{qry}"

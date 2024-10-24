@@ -2,8 +2,8 @@
 
 site_name: Bioinformatic library for bioscience
 
-repo_url: https://github.com/svm-zhang/libscibio
-repo_name: svm-zhang/libscibio
+repo_url: https://github.com/svm-zhang/tinyscibio
+repo_name: svm-zhang/tinyscibio
 edit_uri: edit/main/docs/
 
 theme:

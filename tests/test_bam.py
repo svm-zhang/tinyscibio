@@ -3,7 +3,7 @@ from tempfile import NamedTemporaryFile
 
 import pytest
 
-from libscibio import (
+from tinyscibio import (
     BAMetadata,
     count_indel_bases,
     count_indel_events,

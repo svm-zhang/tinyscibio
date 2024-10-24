@@ -9,7 +9,7 @@ from requests.exceptions import (
     Timeout,
 )
 
-from libscibio import request_api_server
+from tinyscibio import request_api_server
 
 
 def _ensembl_base_url():

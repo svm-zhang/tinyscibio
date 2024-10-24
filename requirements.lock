@@ -17,8 +17,8 @@ charset-normalizer==3.3.2
 idna==3.8
     # via requests
 pysam==0.22.1
-    # via libscibio
+    # via tinyscibio
 requests==2.32.3
-    # via libscibio
+    # via tinyscibio
 urllib3==2.2.3
     # via requests
