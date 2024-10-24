@@ -94,3 +94,4 @@ nav:
   - API:
       - I/O and file system: API/io.md
       - Alignment in BAM: API/bam.md
+      - API service: API/api_server.md
