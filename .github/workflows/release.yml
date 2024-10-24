@@ -51,14 +51,14 @@ jobs:
 
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Pytho
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.x"
 
       - name: Install pip and this package
         run: |
-          python -m vene test_install
+          python -m venv test_install
           source test_install/bin/activate
 
           python -m pip install --upgrade pip
