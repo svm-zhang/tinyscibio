@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from ._io import _PathLike, get_parent_dir, make_dir, parse_path
+from ._version import version as __version__
 from .api_server import request_api_server
 from .bam import (
     BAMetadata,
@@ -15,6 +16,7 @@ from .bam import (
 
 __all__ = [
     "_PathLike",
+    "BAMetadata",
     "make_dir",
     "parse_path",
     "get_parent_dir",
@@ -26,4 +28,5 @@ __all__ = [
     "count_mismatch_events",
     "count_soft_clip_bases",
     "count_indel_bases",
+    "__version__",
 ]
