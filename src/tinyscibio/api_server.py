@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from typing import Optional
+from typing import Optional, Union
 
 import requests
 from requests import (
@@ -12,7 +12,7 @@ from requests import (
 )
 
 _RequestHeaderType = Mapping[str, str]
-_RequestParamsType = Mapping[str, str | int | bool | Iterable[str]]
+_RequestParamsType = Mapping[str, Union[str, int, bool, Iterable[str]]]
 
 
 def request_api_server(

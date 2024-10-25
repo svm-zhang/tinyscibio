@@ -1,6 +1,7 @@
 from pathlib import Path
+from typing import Union
 
-_PathLike = Path | str
+_PathLike = Union[Path, str]
 
 
 def parse_path(path: _PathLike) -> Path:
