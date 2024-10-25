@@ -63,14 +63,16 @@ def parse_path(path: _PathLike) -> Path:
 
 def make_dir(
     path: _PathLike, parents: bool = False, exist_ok: bool = False
-) -> None:
+) -> Path:
     """
     Create a directory at the specified location.
 
     Examples:
         >>> from tinyscibio import make_dir
         >>> p = "/home/user1/projects"
-        >>> make_dir(p, parents=True, exist_ok=True)
+        >>> new_p = make_dir(p, parents=True, exist_ok=True)
+        >>> new_p
+        Path("/home/user1/projects")
 
     Parameters:
         path: Either a string literal or a Path object.
@@ -80,7 +82,7 @@ def make_dir(
                   created already existed.
 
     Returns:
-        None.
+        A Path object pointing to the newly created directory.
 
     Raises:
         FileNotFoundError: When parental folders leading to the given path
@@ -109,6 +111,7 @@ def make_dir(
                 f"Failed to create directory at the given path {path}, "
                 "because it is not a directory."
             )
+    return path
 
 
 def get_parent_dir(path: _PathLike, level: int = 0) -> Path:
