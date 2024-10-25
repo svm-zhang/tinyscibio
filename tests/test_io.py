@@ -44,6 +44,14 @@ def test_mkdir_given_path_is_file_and_existed(temp_file):
         make_dir(p, exist_ok=True)
 
 
+def test_mkdir_return_type(temp_dir):
+    """
+    Test if make_dir returns a Path object.
+    """
+    p = f"{temp_dir.name}/new"
+    assert isinstance(make_dir(p), Path)
+
+
 def test_parent_dir_return_type(temp_dir):
     """Test get_parent_dir() function returns a Path object"""
     p = Path(temp_dir.name)
