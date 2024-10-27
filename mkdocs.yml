@@ -8,7 +8,8 @@ edit_uri: edit/main/docs/
 
 theme:
   name: material
-  font: false
+  font:
+    text: Lato
   icon:
     repo: fontawesome/brands/github
     edit: material/pencil-box
@@ -92,6 +93,6 @@ markdown_extensions:
 nav:
   - Home: index.md
   - API:
-      - I/O and file system: API/io.md
       - Alignment in BAM: API/bam.md
-      - API service: API/api_server.md
+      - API server: API/api_server.md
+      - File system: API/io.md
