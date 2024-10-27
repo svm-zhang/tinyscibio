@@ -1,4 +1,4 @@
-# I/O module
+# Work with file system
 
 ::: tinyscibio._io
     options:

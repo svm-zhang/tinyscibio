@@ -1,4 +1,4 @@
-# Module dealing with anything related to BAM file
+# Work with BAM-related thingy
 
 ::: tinyscibio.bam
     options:
