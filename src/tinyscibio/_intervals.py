@@ -6,8 +6,15 @@ from ncls import NCLS
 
 from tinyscibio import _PathLike, parse_path
 
+# TODO: define customized interval error
 
-def extract_intervals_from_bed(bed_file: _PathLike) -> pl.DataFrame:
+
+# TODO: fix start and end coord if latter is smaller than the former
+def extract_intervals_from_bed(
+    bed_file: _PathLike,
+    stranded: bool = False,
+    one_based: bool = False,
+) -> pl.DataFrame:
     """
     Retrieve intervals from given BED file.
     """
@@ -17,41 +24,89 @@ def extract_intervals_from_bed(bed_file: _PathLike) -> pl.DataFrame:
     n_cols = intervals.shape[1]
     if n_cols < 3:
         raise ValueError("Expect at least 3 columns in a BED file.")
-    return intervals
+
+    if stranded and n_cols < 6:
+        raise ValueError(
+            "Provided BED file does not have the 6th column for "
+            "strand information."
+        )
+
+    # Make start coord zero-based
+    if one_based:
+        intervals = intervals.with_columns(pl.col("column_2") - 1)
+
+    # Sort intervals by start and end coord per chromosome
+    return intervals.select(
+        pl.all().sort_by(["column_2", "column_3"]).over("column_1")
+    )
 
 
-def _overlaps(
-    intervals_a: pl.DataFrame, intervals_b: pl.DataFrame
-) -> tuple[int, int]:
+def _overlaps(qry: pl.DataFrame, subj: pl.DataFrame) -> pl.DataFrame:
     """
-    Find overlapping intervals between two set of ranges.
+    Find overlapping itv between two set of ranges.
     """
     ncls = NCLS(
-        intervals_b[:, 1].__array__(),
-        intervals_b[:, 2].__array__(),
-        np.array(range(0, intervals_b.shape[1]), dtype=np.int64),
+        subj[:, 0].__array__(),
+        subj[:, 1].__array__(),
+        np.array(range(0, subj.shape[0]), dtype=np.int64),
     )
-    print(ncls)
+    idx_q = idx_s = np.empty(0, dtype=np.int64)
+    idx_q, idx_s = ncls.all_overlaps_both(
+        qry[:, 0].__array__(),
+        qry[:, 1].__array__(),
+        np.array(range(0, qry.shape[0]), dtype=np.int64),
+    )
 
-    return ncls.all_overlaps_both(
-        intervals_a[:, 1].__array__(),
-        intervals_a[:, 2].__array__(),
-        np.array(range(0, intervals_a.shape[1]), dtype=np.int64),
+    if len(idx_q) != len(idx_s):
+        raise ValueError
+
+    return pl.DataFrame({"idx_q": idx_q, "idx_s": idx_s})
+
+
+def _check_if_matching_chrom(qry_chrs: pl.Series, subj_chrs: pl.Series):
+    """
+    Check if any matching chromosomes found between query and subject
+    input chromosome values.
+    """
+    m = [k for k in qry_chrs if k in subj_chrs]
+    if not m:
+        raise ValueError("No matching chromosomes found. No need to continue")
+
+
+def find_overlaps(qry: pl.DataFrame, subj: pl.DataFrame) -> pl.DataFrame:
+    """
+    Find overlaps between query and subject intervals.
+    """
+    _check_if_matching_chrom(
+        qry[:, 0].unique(),
+        subj[:, 0].unique(),
     )
+
+    res = _overlaps(qry[:, [1, 2]], subj[:, [1, 2]])
+    print(res)
+    ovls = pl.concat(
+        [qry[res.get_column("idx_q")], subj[res.get_column("idx_s")]],
+        how="horizontal",
+    ).filter(pl.col("column_1_q") == pl.col("column_1_s"))
+
+    print(ovls)
+    return ovls
 
 
 if __name__ == "__main__":
-    intervals_a = pl.DataFrame(
-        {"chr": ["chr1", "chr2"], "start": [1, 200], "end": [51, 250]}
-    )
-    intervals_b = pl.DataFrame(
-        {"chr": ["chr1", "chr2"], "start": [38, 120], "end": [76, 240]}
+    import sys
+
+    hla_bed = sys.argv[1]
+    wes_bed = sys.argv[2]
+
+    qry = extract_intervals_from_bed(hla_bed).with_columns(
+        pl.col("column_1").cast(pl.String)
     )
 
-    # TODO: split intervals by chr
-    l_idx, r_idx = _overlaps(intervals_a, intervals_b)
-    # FIXME: check if no overlaps found, return None
-    # FIXME: also need to assert l and r idx have the same length
-    # FIXME: Need to make sure chr are the same between l and r
-    print(l_idx)
-    print(r_idx)
+    subj = extract_intervals_from_bed(wes_bed).with_columns(
+        pl.col("column_1").cast(pl.String)
+    )
+    qry.columns = [f"{c}_q" for c in qry.columns]
+    subj.columns = [f"{c}_s" for c in subj.columns]
+
+    find_overlaps(qry, subj)
