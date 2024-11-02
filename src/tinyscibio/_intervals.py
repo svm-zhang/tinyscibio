@@ -4,41 +4,52 @@ import numpy as np
 import polars as pl
 from ncls import NCLS
 
-from tinyscibio import _PathLike, parse_path
-
-# TODO: define customized interval error
+from ._io import _PathLike, parse_path
 
 
-# TODO: fix start and end coord if latter is smaller than the former
-def extract_intervals_from_bed(
-    bed_file: _PathLike,
-    stranded: bool = False,
-    one_based: bool = False,
-) -> pl.DataFrame:
+class NoMatchingChr(Exception):
+    """When no matching chromosome found between query and subject"""
+
+
+class NotSatisfyMinColReq(Exception):
+    """When input does not meet the requirement of minimum 3 columns"""
+
+
+class NotInt64StartEnd(Exception):
+    """When columns for start and end coords are not of type Int64"""
+
+
+def _check_if_matching_chrom(qry_chrs: pl.Series, subj_chrs: pl.Series):
     """
-    Retrieve intervals from given BED file.
+    Check if any matching chromosomes found between query and subject
+    input chromosome values.
     """
-    bed_file = parse_path(bed_file)
-
-    intervals = pl.read_csv(bed_file, has_header=False, separator="\t")
-    n_cols = intervals.shape[1]
-    if n_cols < 3:
-        raise ValueError("Expect at least 3 columns in a BED file.")
-
-    if stranded and n_cols < 6:
-        raise ValueError(
-            "Provided BED file does not have the 6th column for "
-            "strand information."
+    m = [k for k in qry_chrs if k in subj_chrs]
+    if not m:
+        raise NoMatchingChr(
+            (
+                "Found no matching chromosomes between query and subject.\n"
+                f"Chromosome in query: {qry_chrs}\n"
+                f"Chromosome in subject: {subj_chrs}\n"
+            )
         )
 
-    # Make start coord zero-based
-    if one_based:
-        intervals = intervals.with_columns(pl.col("column_2") - 1)
 
-    # Sort intervals by start and end coord per chromosome
-    return intervals.select(
-        pl.all().sort_by(["column_2", "column_3"]).over("column_1")
-    )
+def _check_input_interval(df: pl.DataFrame) -> None:
+    def _check_minimun_col_req(df: pl.DataFrame) -> None:
+        if df.shape[1] < 3:
+            raise NotSatisfyMinColReq(
+                "A minimum of 3 columns (chrom, start, end) required for "
+                "interval dataframe to do overlap operation.\n"
+                f"Column received: {df.columns}"
+            )
+
+    def _check_start_end_cols(df: pl.DataFrame) -> None:
+        if df[:, 1].dtype != pl.Int64 or df[:, 2].dtype != pl.Int64:
+            raise NotInt64StartEnd("2nd and 3rd columns must be of int64 type")
+
+    _check_minimun_col_req(df)
+    _check_start_end_cols(df)
 
 
 def _overlaps(qry: pl.DataFrame, subj: pl.DataFrame) -> pl.DataFrame:
@@ -57,56 +68,52 @@ def _overlaps(qry: pl.DataFrame, subj: pl.DataFrame) -> pl.DataFrame:
         np.array(range(0, qry.shape[0]), dtype=np.int64),
     )
 
-    if len(idx_q) != len(idx_s):
-        raise ValueError
-
     return pl.DataFrame({"idx_q": idx_q, "idx_s": idx_s})
-
-
-def _check_if_matching_chrom(qry_chrs: pl.Series, subj_chrs: pl.Series):
-    """
-    Check if any matching chromosomes found between query and subject
-    input chromosome values.
-    """
-    m = [k for k in qry_chrs if k in subj_chrs]
-    if not m:
-        raise ValueError("No matching chromosomes found. No need to continue")
 
 
 def find_overlaps(qry: pl.DataFrame, subj: pl.DataFrame) -> pl.DataFrame:
     """
     Find overlaps between query and subject intervals.
     """
+    _check_input_interval(qry)
+    _check_input_interval(subj)
+
     _check_if_matching_chrom(
         qry[:, 0].unique(),
         subj[:, 0].unique(),
     )
 
-    res = _overlaps(qry[:, [1, 2]], subj[:, [1, 2]])
-    print(res)
-    ovls = pl.concat(
-        [qry[res.get_column("idx_q")], subj[res.get_column("idx_s")]],
-        how="horizontal",
-    ).filter(pl.col("column_1_q") == pl.col("column_1_s"))
-
-    print(ovls)
-    return ovls
-
-
-if __name__ == "__main__":
-    import sys
-
-    hla_bed = sys.argv[1]
-    wes_bed = sys.argv[2]
-
-    qry = extract_intervals_from_bed(hla_bed).with_columns(
-        pl.col("column_1").cast(pl.String)
-    )
-
-    subj = extract_intervals_from_bed(wes_bed).with_columns(
-        pl.col("column_1").cast(pl.String)
-    )
+    # append _q and _s to columns of each dataframe
     qry.columns = [f"{c}_q" for c in qry.columns]
     subj.columns = [f"{c}_s" for c in subj.columns]
 
-    find_overlaps(qry, subj)
+    res = _overlaps(qry[:, [1, 2]], subj[:, [1, 2]])
+    ovls = pl.concat(
+        [qry[res.get_column("idx_q")], subj[res.get_column("idx_s")]],
+        how="horizontal",
+    )
+    ovls = ovls.filter(pl.col(ovls.columns[0]) == pl.col(ovls.columns[3]))
+
+    return ovls
+
+
+def bed_to_df(
+    bed_file: _PathLike,
+    one_based: bool = False,
+) -> pl.DataFrame:
+    """
+    Retrieve intervals from given BED file.
+    """
+    bed_file = parse_path(bed_file)
+
+    intervals = pl.read_csv(bed_file, has_header=False, separator="\t")
+    _check_input_interval(intervals)
+
+    # Make start coord zero-based
+    if one_based:
+        intervals = intervals.with_columns(pl.col("column_2") - 1)
+
+    # Sort intervals by start and end coord per chromosome
+    return intervals.select(
+        pl.all().sort_by(["column_2", "column_3"]).over("column_1")
+    )
