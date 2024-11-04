@@ -176,6 +176,12 @@ def test_read_bad_bed(bad_bed):
         bed_to_df(bad_bed)
 
 
+def test_read_non_exist_bed():
+    p = "non_exist.bed"
+    with pytest.raises(FileNotFoundError):
+        bed_to_df(p)
+
+
 def test_bed_to_df_on_one_based_input(bed3):
     assert bed_to_df(bed3, one_based=True).equals(
         pl.DataFrame(
