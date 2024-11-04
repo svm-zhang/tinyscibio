@@ -91,7 +91,8 @@ def _overlaps(qry: pl.DataFrame, subj: pl.DataFrame) -> pl.DataFrame:
 
 def find_overlaps(qry: pl.DataFrame, subj: pl.DataFrame) -> pl.DataFrame:
     """
-    Find overlaps between query and subject intervals.
+    Find overlaps between query and subject intervals. Strand is not taken into
+    consideration at the moment.
 
     The function returns an empty (not None) polars dataframe if no overlapping
     intervals are found.
