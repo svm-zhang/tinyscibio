@@ -39,6 +39,10 @@ dynamic = ["version"]
 dependencies = [
     "requests>=2.32.3",
     "pysam>=0.22.1",
+    "polars>=1.12.0",
+    "numpy>=2.1.2",
+    "ncls>=0.0.68",
+    "setuptools>=75.3.0",
 ]
 requires-python = ">= 3.10"
 
@@ -49,8 +53,8 @@ build.targets.sdist.include = [
   "/tests",
   "/tox.ini"
 ]
-build.hooks.vcs.version-file = "src/tinyscibio/_version.py"
 build.targets.wheel.packages = ["src/tinyscibio"]
+build.hooks.vcs.version-file = "src/tinyscibio/_version.py"
 version.source = "vcs"
 
 [tool.rye]
@@ -88,6 +92,11 @@ addopts = "-ra --tb=auto --cov"
 [tool.mypy]
 strict = true
 pretty = true
+overrides = [
+  { module = [
+      "ncls"
+    ], ignore_missing_imports = true},
+]
 
 [dependency-groups]
 test = [

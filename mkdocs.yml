@@ -96,3 +96,4 @@ nav:
       - Alignment in BAM: API/bam.md
       - API server: API/api_server.md
       - File system: API/io.md
+      - Intervals: API/intervals.md
