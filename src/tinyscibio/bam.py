@@ -6,7 +6,7 @@ from typing import Any, Union
 
 import pysam
 
-from tinyscibio import parse_path
+from ._io import parse_path
 
 
 @dataclass
