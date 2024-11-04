@@ -16,9 +16,18 @@ charset-normalizer==3.3.2
     # via requests
 idna==3.8
     # via requests
+ncls==0.0.68
+    # via tinyscibio
+numpy==2.1.2
+    # via ncls
+    # via tinyscibio
+polars==1.12.0
+    # via tinyscibio
 pysam==0.22.1
     # via tinyscibio
 requests==2.32.3
+    # via tinyscibio
+setuptools==75.3.0
     # via tinyscibio
 urllib3==2.2.3
     # via requests
