@@ -1,7 +1,7 @@
 import inspect
 import itertools
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping, Sequence, Set
 from dataclasses import dataclass, field
 from typing import Any, Optional, Union
 
@@ -374,6 +374,7 @@ class BamArrays:
     mm_ecnt: np.ndarray
     indel_ecnt: np.ndarray
     qnames: np.ndarray
+    size: int
 
     @classmethod
     def create(cls, chunk_size: int) -> "BamArrays":
@@ -400,9 +401,24 @@ class BamArrays:
                     attrs[k] = np.empty(chunk_size, dtype=np.int16)
                 case "qnames":
                     attrs[k] = np.empty(chunk_size, dtype="object")
+                case "size":
+                    attrs[k] = chunk_size
                 case _:
                     pass
         return cls(**attrs)
+
+    def df(self, idx: int) -> pl.DataFrame:
+        if idx < 0:
+            raise ValueError(f"Given {idx=} must be positive")
+        if idx > self.size:
+            raise IndexError(
+                f"Given {idx=} is larger than the size of "
+                f"bamarray {self.size=}. "
+                "Try to create BamArrays object with bigger chunk_size."
+            )
+        return pl.DataFrame(
+            {k: getattr(self, k)[:idx] for k in self.__dict__.keys()}
+        )
 
 
 @dataclass
@@ -433,12 +449,12 @@ class Interval:
 
 
 # TODO: return base qualities as ndarray
-# TODO: filter by read_group
 def walk_bam(
     fspath: str,
     interval: Interval,
     exclude: int = 3840,
     chunk_size: int = 100_000,
+    read_groups: Set[str] = set(),
 ) -> pl.DataFrame:
     bam_arrays = BamArrays.create(chunk_size)
 
@@ -448,6 +464,11 @@ def walk_bam(
         for aln in bamf.fetch(
             contig=interval.rname, start=interval.start, stop=interval.end
         ):
+            # Skip records whose read group is not defined in read_groups
+            if read_groups:
+                rg = aln.get_tag("RG") if aln.has_tag("RG") else ""
+                if rg not in read_groups:
+                    continue
             # Skip alignments if any of the exclude bit is set
             if bool(aln.flag & exclude):
                 continue
@@ -483,23 +504,16 @@ def walk_bam(
             idx += 1
 
             if idx == chunk_size:
-                chunk = pl.DataFrame(
-                    {
-                        k: getattr(bam_arrays, k)
-                        for k in bam_arrays.__dict__.keys()
-                    }
-                )
-                chunks.append(chunk)
+                chunks.append(bam_arrays.df(idx))
                 idx = 0
 
         if idx > 0:
-            chunk = pl.DataFrame(
-                {
-                    k: getattr(bam_arrays, k)[:idx]
-                    for k in bam_arrays.__dict__.keys()
-                }
-            )
-            chunks.append(chunk)
+            chunks.append(bam_arrays.df(idx))
+
+    # handle cases where no df returned, e.g. when no records have rg in
+    # the defined read_groups
+    if not chunks:
+        return bam_arrays.df(idx=0)
 
     return pl.concat(chunks)
 
@@ -511,7 +525,10 @@ if __name__ == "__main__":
     interval = Interval(contig, 0)
     interval = Interval.create(contig, 0, 4000, seqmap=bametadata.seqmap())
     print(interval)
-    df = walk_bam(bam, interval, exclude=3584, chunk_size=100_000)
+    rgs = {"NA18840"}
+    df = walk_bam(
+        bam, interval, exclude=3584, chunk_size=100_000, read_groups=rgs
+    )
     df = df.with_columns(
         pl.col("ridxs")
         .replace_strict(bametadata.idx2seqname())
