@@ -451,7 +451,7 @@ def walk_bam(
                 if aln.has_tag("MD")
                 else -1
             )
-            bam_arrays.mm_ecnt[idx] = (
+            bam_arrays.indel_ecnt[idx] = (
                 count_indel_events(aln.cigarstring)
                 if aln.cigarstring is not None
                 else -1
