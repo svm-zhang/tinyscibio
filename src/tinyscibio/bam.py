@@ -43,7 +43,7 @@ class BAMetadata:
 
     fspath: str
     sort_by: str = field(init=False, default="")
-    references: dict[str, int] = field(init=False, default_factory=dict)
+    references: list[dict[str, int]] = field(init=False, default_factory=list)
     read_groups: list[dict[str, str]] = field(init=False, default_factory=list)
 
     def __post_init__(self) -> None:
@@ -72,9 +72,9 @@ class BAMetadata:
         if not sqs:
             raise IndexError("No sequence information found in the header")
 
-        self.references = {
-            s["SN"]: int(s["LN"]) for s in sqs if "SN" in s and "LN" in s
-        }
+        self.references = [
+            {s["SN"]: int(s["LN"])} for s in sqs if "SN" in s and "LN" in s
+        ]
 
         # if some references does not have SN and LN info,
         # they will not be read in the self.references
@@ -105,8 +105,17 @@ class BAMetadata:
             f"# read groups: {len(self.read_groups)}\n"
         )
 
-    # def seqnames(self) -> list[str]:
-    #     return [k for r in self.references for k in r.keys()]
+    def seqmap(self) -> dict[str, int]:
+        return {k: v for r in self.references for k, v in r.items()}
+
+    def seqnames(self) -> list[str]:
+        return [k for r in self.references for k in r.keys()]
+
+    def idx2seqname(self) -> dict[int, str]:
+        return {i: k for i, r in enumerate(self.references) for k in r.keys()}
+
+    def seqname2idx(self) -> dict[str, int]:
+        return {k: i for i, r in enumerate(self.references) for k in r.keys()}
 
 
 def parse_cigar(cigar: str) -> list[tuple[str, str]]:
@@ -355,7 +364,7 @@ def count_mismatch_events(md: Union[str, Sequence[str]]) -> int:
 
 @dataclass
 class BamArrays:
-    rnames: np.ndarray
+    ridxs: np.ndarray
     rstarts: np.ndarray
     rends: np.ndarray
     mqs: np.ndarray
@@ -371,8 +380,8 @@ class BamArrays:
         attrs = {}
         for k in inspect.get_annotations(cls).keys():
             match k:
-                case "rnames":
-                    attrs[k] = np.empty(chunk_size, dtype="object")
+                case "ridxs":
+                    attrs[k] = np.empty(chunk_size, dtype=np.uint16)
                 case "rstarts":
                     attrs[k] = np.empty(chunk_size, dtype=np.int32)
                 case "rends":
@@ -408,23 +417,22 @@ class Interval:
         rname: str,
         start: Optional[int] = None,
         end: Optional[int] = None,
-        refmap: Optional[Mapping[str, int]] = None,
+        seqmap: Optional[Mapping[str, int]] = None,
     ) -> "Interval":
-        if refmap is not None:
-            if rname not in refmap.keys():
+        if seqmap is not None:
+            if rname not in seqmap.keys():
                 raise KeyError(f"{rname=} is not found in the reference map.")
             start = start if start is not None and start > 0 else 0
             end = (
                 end
-                if end is not None and end <= refmap[rname]
-                else refmap[rname]
+                if end is not None and end <= seqmap[rname]
+                else seqmap[rname]
             )
         interval = cls(rname, start, end)
         return interval
 
 
 # TODO: return base qualities as ndarray
-# TODO: use rname index not name
 # TODO: filter by read_group
 def walk_bam(
     fspath: str,
@@ -452,7 +460,7 @@ def walk_bam(
             bam_arrays.mqs[idx] = aln.mapping_quality
             bam_arrays.propers[idx] = aln.is_proper_pair
             bam_arrays.primarys[idx] = not aln.is_secondary
-            bam_arrays.rnames[idx] = aln.reference_name
+            bam_arrays.ridxs[idx] = aln.reference_id
             bam_arrays.rstarts[idx] = aln.reference_start
             bam_arrays.rends[idx] = (
                 aln.reference_end if aln.reference_end else -1
@@ -501,9 +509,14 @@ if __name__ == "__main__":
     bametadata = BAMetadata(bam)
     contig = "hla_a_01_01_01_01"
     interval = Interval(contig, 0)
-    interval = Interval.create(contig, 0, refmap=bametadata.references)
+    interval = Interval.create(contig, 0, 4000, seqmap=bametadata.seqmap())
     print(interval)
     df = walk_bam(bam, interval, exclude=3584, chunk_size=100_000)
+    df = df.with_columns(
+        pl.col("ridxs")
+        .replace_strict(bametadata.idx2seqname())
+        .alias("rnames")
+    )
     print(df.shape)
     print(df.head())
     print(df.tail())
