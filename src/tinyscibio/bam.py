@@ -1,7 +1,7 @@
 import inspect
 import itertools
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Optional, Union
 
@@ -396,34 +396,50 @@ class BamArrays:
         return cls(**attrs)
 
 
+@dataclass
+class Interval:
+    rname: str
+    start: Optional[int] = None
+    end: Optional[int] = None
+
+    @classmethod
+    def create(
+        cls,
+        rname: str,
+        start: Optional[int] = None,
+        end: Optional[int] = None,
+        refmap: Optional[Mapping[str, int]] = None,
+    ) -> "Interval":
+        if refmap is not None:
+            if rname not in refmap.keys():
+                raise KeyError(f"{rname=} is not found in the reference map.")
+            start = start if start is not None and start > 0 else 0
+            end = (
+                end
+                if end is not None and end <= refmap[rname]
+                else refmap[rname]
+            )
+        interval = cls(rname, start, end)
+        return interval
+
+
 # TODO: return base qualities as ndarray
 # TODO: use rname index not name
 # TODO: filter by read_group
 def walk_bam(
-    bametadata: BAMetadata,
-    contig: Optional[str] = None,
-    start: Optional[int] = None,
-    stop: Optional[int] = None,
+    fspath: str,
+    interval: Interval,
     exclude: int = 3840,
     chunk_size: int = 100_000,
 ) -> pl.DataFrame:
-    # FIXME: write a function to check first
-    if contig is not None and contig not in bametadata.references.keys():
-        raise KeyError(f"Given {contig=} is not found in the BAM header.")
-
-    if start is not None and start < 0:
-        start = 0
-
-    # FIXME: contig can be NoneType
-    if stop is not None and stop > bametadata.references[contig]:
-        stop = bametadata.references[contig]
-
     bam_arrays = BamArrays.create(chunk_size)
 
     chunks: list[pl.DataFrame] = []
-    with pysam.AlignmentFile(bametadata.fspath, "rb") as bamf:
+    with pysam.AlignmentFile(fspath, "rb") as bamf:
         idx = 0
-        for aln in bamf.fetch(contig=contig, start=start, stop=stop):
+        for aln in bamf.fetch(
+            contig=interval.rname, start=interval.start, stop=interval.end
+        ):
             # Skip alignments if any of the exclude bit is set
             if bool(aln.flag & exclude):
                 continue
@@ -484,7 +500,10 @@ if __name__ == "__main__":
     bam = "/Users/simo/work/bio/resource/hla/1kg/NA18740/class1/realigner/NA18740.hla.realn.so.bam"
     bametadata = BAMetadata(bam)
     contig = "hla_a_01_01_01_01"
-    df = walk_bam(bametadata, exclude=3584, chunk_size=100_000)
+    interval = Interval(contig, 0)
+    interval = Interval.create(contig, 0, refmap=bametadata.references)
+    print(interval)
+    df = walk_bam(bam, interval, exclude=3584, chunk_size=100_000)
     print(df.shape)
     print(df.head())
     print(df.tail())
