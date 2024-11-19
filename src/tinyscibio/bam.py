@@ -2,8 +2,10 @@ import itertools
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Any, Union
+from typing import Any, Optional, Union
 
+import numpy as np
+import polars as pl
 import pysam
 
 from ._io import parse_path
@@ -40,7 +42,7 @@ class BAMetadata:
 
     fspath: str
     sort_by: str = field(init=False, default="")
-    references: list[dict[str, int]] = field(init=False, default_factory=list)
+    references: dict[str, int] = field(init=False, default_factory=dict)
     read_groups: list[dict[str, str]] = field(init=False, default_factory=list)
 
     def __post_init__(self) -> None:
@@ -69,9 +71,9 @@ class BAMetadata:
         if not sqs:
             raise IndexError("No sequence information found in the header")
 
-        self.references = [
-            {s["SN"]: int(s["LN"])} for s in sqs if "SN" in s and "LN" in s
-        ]
+        self.references = {
+            s["SN"]: int(s["LN"]) for s in sqs if "SN" in s and "LN" in s
+        }
 
         # if some references does not have SN and LN info,
         # they will not be read in the self.references
@@ -102,8 +104,8 @@ class BAMetadata:
             f"# read groups: {len(self.read_groups)}\n"
         )
 
-    def seqnames(self) -> list[str]:
-        return [k for r in self.references for k in r.keys()]
+    # def seqnames(self) -> list[str]:
+    #     return [k for r in self.references for k in r.keys()]
 
 
 def parse_cigar(cigar: str) -> list[tuple[str, str]]:
@@ -348,3 +350,133 @@ def count_mismatch_events(md: Union[str, Sequence[str]]) -> int:
     if isinstance(md, str):
         md = parse_md(md)
     return len([e for e in md if e.isalpha()])
+
+
+def _alloc_arrays(chunk_size) -> tuple[np.ndarray, ...]:
+    qnames = np.empty(chunk_size, dtype="object")  # For string data
+    mqs = np.empty(chunk_size, dtype=np.uint8)  # 0-255 for mapping quality
+    propers = np.empty(chunk_size, dtype=bool)  # SAM flags
+    primarys = np.empty(chunk_size, dtype=bool)  # SAM flags
+    refs = np.empty(chunk_size, dtype="object")  # Reference names
+    ref_starts = np.empty(chunk_size, dtype=np.uint32)  # Position values
+    ref_stops = np.empty(chunk_size, dtype=np.uint32)  # Position values
+    sc_bps = np.empty(chunk_size, dtype=np.int16)  # Position values
+    n_mm_events = np.empty(chunk_size, dtype=np.int16)  # Position values
+    n_indel_events = np.empty(chunk_size, dtype=np.int16)  # Position values
+    return (
+        qnames,
+        mqs,
+        propers,
+        primarys,
+        refs,
+        ref_starts,
+        ref_stops,
+        sc_bps,
+        n_mm_events,
+        n_indel_events,
+    )
+
+
+def walk_bam(
+    bametadata: BAMetadata,
+    contig: Optional[str] = None,
+    start: Optional[int] = None,
+    stop: Optional[int] = None,
+    exclude: int = 3840,
+    chunk_size: int = 100_000,
+) -> pl.DataFrame:
+    if contig is not None and contig not in bametadata.references.keys():
+        raise KeyError(f"Given {contig=} is not found in the BAM header.")
+
+    if start is not None and start < 0:
+        start = 0
+
+    if stop is not None and stop > bametadata.references[contig]:
+        # TODO: issue warning about exceeding max chrom length
+        stop = bametadata.references[contig]
+
+    (
+        qnames,
+        mqs,
+        propers,
+        primarys,
+        refs,
+        ref_starts,
+        ref_stops,
+        sc_bps,
+        n_mm_events,
+        n_indel_events,
+    ) = _alloc_arrays(chunk_size)
+
+    chunks: list[pl.DataFrame] = []
+    with pysam.AlignmentFile(bametadata.fspath, "rb") as bamf:
+        idx = 0
+        for aln in bamf.fetch(contig=contig, start=start, stop=stop):
+            # Skip alignments if any of the exclude bit is set
+            if bool(aln.flag & exclude):
+                continue
+            if aln.query_qualities is None:
+                continue
+            if aln.query_name is None:
+                continue
+
+            qnames[idx] = aln.query_name
+            mqs[idx] = aln.mapping_quality
+            propers[idx] = aln.is_proper
+            primarys[idx] = not aln.is_secondary
+            refs[idx] = aln.reference_name
+            ref_starts[idx] = aln.reference_start
+            ref_stops[idx] = aln.reference_end if aln.reference_end else -1
+            sc_bps[idx] = (
+                count_soft_clip_bases(aln.cigarstring)
+                if aln.cigarstring is not None
+                else -1
+            )
+            n_mm_events[idx] = (
+                count_mismatch_events(str(aln.get_tag("MD")))
+                if aln.has_tag("MD")
+                else -1
+            )
+            n_indel_events[idx] = (
+                count_indel_events(aln.cigarstring)
+                if aln.cigarstring is not None
+                else -1
+            )
+            idx += 1
+
+            if idx == chunk_size:
+                chunk = pl.DataFrame(
+                    {
+                        "chrom": refs,
+                        "start": ref_starts,
+                        "stops": ref_stops,
+                        "qname": qnames,
+                        "mq": mqs,
+                        "proper_or_not": propers,
+                        "primary_or_not": primarys,
+                        "n_mm_events": n_mm_events,
+                        "n_indel_events": n_indel_events,
+                        "n_sc_bases": sc_bps,
+                    }
+                )
+                chunks.append(chunk)
+                idx = 0
+
+        if idx > 0:
+            chunk = pl.DataFrame(
+                {
+                    "chrom": refs[:idx],
+                    "start": ref_starts[:idx],
+                    "stops": ref_stops[:idx],
+                    "qname": qnames[:idx],
+                    "mq": mqs[:idx],
+                    "proper_or_not": propers[:idx],
+                    "primary_or_not": primarys[:idx],
+                    "n_mm_events": n_mm_events[:idx],
+                    "n_indel_events": n_indel_events[:idx],
+                    "n_sc_bases": sc_bps[:idx],
+                }
+            )
+            chunks.append(chunk)
+
+    return pl.concat(chunks)
