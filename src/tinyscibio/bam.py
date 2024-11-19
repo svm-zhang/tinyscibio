@@ -1,3 +1,4 @@
+import inspect
 import itertools
 import re
 from collections.abc import Sequence
@@ -8,7 +9,7 @@ import numpy as np
 import polars as pl
 import pysam
 
-from ._io import parse_path
+from tinyscibio import parse_path
 
 
 @dataclass
@@ -352,31 +353,52 @@ def count_mismatch_events(md: Union[str, Sequence[str]]) -> int:
     return len([e for e in md if e.isalpha()])
 
 
-def _alloc_arrays(chunk_size) -> tuple[np.ndarray, ...]:
-    qnames = np.empty(chunk_size, dtype="object")  # For string data
-    mqs = np.empty(chunk_size, dtype=np.uint8)  # 0-255 for mapping quality
-    propers = np.empty(chunk_size, dtype=bool)  # SAM flags
-    primarys = np.empty(chunk_size, dtype=bool)  # SAM flags
-    refs = np.empty(chunk_size, dtype="object")  # Reference names
-    ref_starts = np.empty(chunk_size, dtype=np.uint32)  # Position values
-    ref_stops = np.empty(chunk_size, dtype=np.uint32)  # Position values
-    sc_bps = np.empty(chunk_size, dtype=np.int16)  # Position values
-    n_mm_events = np.empty(chunk_size, dtype=np.int16)  # Position values
-    n_indel_events = np.empty(chunk_size, dtype=np.int16)  # Position values
-    return (
-        qnames,
-        mqs,
-        propers,
-        primarys,
-        refs,
-        ref_starts,
-        ref_stops,
-        sc_bps,
-        n_mm_events,
-        n_indel_events,
-    )
+@dataclass
+class BamArrays:
+    rnames: np.ndarray
+    rstarts: np.ndarray
+    rends: np.ndarray
+    mqs: np.ndarray
+    propers: np.ndarray
+    primarys: np.ndarray
+    sc_bps: np.ndarray
+    mm_ecnt: np.ndarray
+    indel_ecnt: np.ndarray
+    qnames: np.ndarray
+
+    @classmethod
+    def create(cls, chunk_size: int) -> "BamArrays":
+        attrs = {}
+        for k in inspect.get_annotations(cls).keys():
+            match k:
+                case "rnames":
+                    attrs[k] = np.empty(chunk_size, dtype="object")
+                case "rstarts":
+                    attrs[k] = np.empty(chunk_size, dtype=np.int32)
+                case "rends":
+                    attrs[k] = np.empty(chunk_size, dtype=np.int32)
+                case "mqs":
+                    attrs[k] = np.empty(chunk_size, dtype=np.uint8)
+                case "propers":
+                    attrs[k] = np.empty(chunk_size, dtype=bool)
+                case "primarys":
+                    attrs[k] = np.empty(chunk_size, dtype=bool)
+                case "mm_ecnt":
+                    attrs[k] = np.empty(chunk_size, dtype=np.int16)
+                case "indel_ecnt":
+                    attrs[k] = np.empty(chunk_size, dtype=np.int16)
+                case "sc_bps":
+                    attrs[k] = np.empty(chunk_size, dtype=np.int16)
+                case "qnames":
+                    attrs[k] = np.empty(chunk_size, dtype="object")
+                case _:
+                    pass
+        return cls(**attrs)
 
 
+# TODO: return base qualities as ndarray
+# TODO: use rname index not name
+# TODO: filter by read_group
 def walk_bam(
     bametadata: BAMetadata,
     contig: Optional[str] = None,
@@ -385,28 +407,18 @@ def walk_bam(
     exclude: int = 3840,
     chunk_size: int = 100_000,
 ) -> pl.DataFrame:
+    # FIXME: write a function to check first
     if contig is not None and contig not in bametadata.references.keys():
         raise KeyError(f"Given {contig=} is not found in the BAM header.")
 
     if start is not None and start < 0:
         start = 0
 
+    # FIXME: contig can be NoneType
     if stop is not None and stop > bametadata.references[contig]:
-        # TODO: issue warning about exceeding max chrom length
         stop = bametadata.references[contig]
 
-    (
-        qnames,
-        mqs,
-        propers,
-        primarys,
-        refs,
-        ref_starts,
-        ref_stops,
-        sc_bps,
-        n_mm_events,
-        n_indel_events,
-    ) = _alloc_arrays(chunk_size)
+    bam_arrays = BamArrays.create(chunk_size)
 
     chunks: list[pl.DataFrame] = []
     with pysam.AlignmentFile(bametadata.fspath, "rb") as bamf:
@@ -420,24 +432,26 @@ def walk_bam(
             if aln.query_name is None:
                 continue
 
-            qnames[idx] = aln.query_name
-            mqs[idx] = aln.mapping_quality
-            propers[idx] = aln.is_proper
-            primarys[idx] = not aln.is_secondary
-            refs[idx] = aln.reference_name
-            ref_starts[idx] = aln.reference_start
-            ref_stops[idx] = aln.reference_end if aln.reference_end else -1
-            sc_bps[idx] = (
+            bam_arrays.qnames[idx] = aln.query_name
+            bam_arrays.mqs[idx] = aln.mapping_quality
+            bam_arrays.propers[idx] = aln.is_proper_pair
+            bam_arrays.primarys[idx] = not aln.is_secondary
+            bam_arrays.rnames[idx] = aln.reference_name
+            bam_arrays.rstarts[idx] = aln.reference_start
+            bam_arrays.rends[idx] = (
+                aln.reference_end if aln.reference_end else -1
+            )
+            bam_arrays.sc_bps[idx] = (
                 count_soft_clip_bases(aln.cigarstring)
                 if aln.cigarstring is not None
                 else -1
             )
-            n_mm_events[idx] = (
+            bam_arrays.mm_ecnt[idx] = (
                 count_mismatch_events(str(aln.get_tag("MD")))
                 if aln.has_tag("MD")
                 else -1
             )
-            n_indel_events[idx] = (
+            bam_arrays.mm_ecnt[idx] = (
                 count_indel_events(aln.cigarstring)
                 if aln.cigarstring is not None
                 else -1
@@ -447,16 +461,8 @@ def walk_bam(
             if idx == chunk_size:
                 chunk = pl.DataFrame(
                     {
-                        "chrom": refs,
-                        "start": ref_starts,
-                        "stops": ref_stops,
-                        "qname": qnames,
-                        "mq": mqs,
-                        "proper_or_not": propers,
-                        "primary_or_not": primarys,
-                        "n_mm_events": n_mm_events,
-                        "n_indel_events": n_indel_events,
-                        "n_sc_bases": sc_bps,
+                        k: getattr(bam_arrays, k)
+                        for k in bam_arrays.__dict__.keys()
                     }
                 )
                 chunks.append(chunk)
@@ -465,18 +471,20 @@ def walk_bam(
         if idx > 0:
             chunk = pl.DataFrame(
                 {
-                    "chrom": refs[:idx],
-                    "start": ref_starts[:idx],
-                    "stops": ref_stops[:idx],
-                    "qname": qnames[:idx],
-                    "mq": mqs[:idx],
-                    "proper_or_not": propers[:idx],
-                    "primary_or_not": primarys[:idx],
-                    "n_mm_events": n_mm_events[:idx],
-                    "n_indel_events": n_indel_events[:idx],
-                    "n_sc_bases": sc_bps[:idx],
+                    k: getattr(bam_arrays, k)[:idx]
+                    for k in bam_arrays.__dict__.keys()
                 }
             )
             chunks.append(chunk)
 
     return pl.concat(chunks)
+
+
+if __name__ == "__main__":
+    bam = "/Users/simo/work/bio/resource/hla/1kg/NA18740/class1/realigner/NA18740.hla.realn.so.bam"
+    bametadata = BAMetadata(bam)
+    contig = "hla_a_01_01_01_01"
+    df = walk_bam(bametadata, exclude=3584, chunk_size=100_000)
+    print(df.shape)
+    print(df.head())
+    print(df.tail())
