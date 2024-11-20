@@ -1,6 +1,7 @@
 import inspect
 import itertools
 import re
+import sys
 from collections.abc import Mapping, Sequence, Set
 from dataclasses import dataclass, field
 from typing import Any, Optional, Union
@@ -364,23 +365,31 @@ def count_mismatch_events(md: Union[str, Sequence[str]]) -> int:
 
 @dataclass
 class BamArrays:
-    ridxs: np.ndarray
+    rnames: np.ndarray
     rstarts: np.ndarray
     rends: np.ndarray
     mqs: np.ndarray
     propers: np.ndarray
     primarys: np.ndarray
     sc_bps: np.ndarray
-    mm_ecnt: np.ndarray
-    indel_ecnt: np.ndarray
     qnames: np.ndarray
+    mm_ecnt: np.ndarray = field(default_factory=lambda: np.array([]))
+    indel_ecnt: np.ndarray = field(default_factory=lambda: np.array([]))
+    bqs: np.ndarray = field(default_factory=lambda: np.array([]))
+    mds: np.ndarray = field(default_factory=lambda: np.array([]))
 
     @classmethod
-    def create(cls, chunk_size: int) -> "BamArrays":
+    def create(
+        cls,
+        chunk_size: int,
+        with_ecnt: bool = False,
+        with_bq: bool = False,
+        with_md: bool = False,
+    ) -> "BamArrays":
         attrs = {}
         for k in inspect.get_annotations(cls).keys():
             match k:
-                case "ridxs":
+                case "rnames":
                     attrs[k] = np.empty(chunk_size, dtype=np.uint16)
                 case "rstarts":
                     attrs[k] = np.empty(chunk_size, dtype=np.int32)
@@ -393,13 +402,21 @@ class BamArrays:
                 case "primarys":
                     attrs[k] = np.empty(chunk_size, dtype=bool)
                 case "mm_ecnt":
-                    attrs[k] = np.empty(chunk_size, dtype=np.int16)
+                    if with_ecnt:
+                        attrs[k] = np.empty(chunk_size, dtype=np.int16)
                 case "indel_ecnt":
-                    attrs[k] = np.empty(chunk_size, dtype=np.int16)
+                    if with_ecnt:
+                        attrs[k] = np.empty(chunk_size, dtype=np.int16)
                 case "sc_bps":
                     attrs[k] = np.empty(chunk_size, dtype=np.int16)
                 case "qnames":
                     attrs[k] = np.empty(chunk_size, dtype="object")
+                case "bqs":
+                    if with_bq:
+                        attrs[k] = np.empty(chunk_size, dtype=np.ndarray)
+                case "mds":
+                    if with_md:
+                        attrs[k] = np.empty(chunk_size, dtype=np.ndarray)
                 case _:
                     pass
         return cls(**attrs)
@@ -414,7 +431,11 @@ class BamArrays:
                 "Try to create BamArrays object with bigger chunk_size."
             )
         return pl.DataFrame(
-            {k: getattr(self, k)[:idx] for k in self.__dict__.keys()}
+            {
+                k: getattr(self, k)[:idx]
+                for k in self.__dict__.keys()
+                if getattr(self, k).size > 0
+            }
         )
 
 
@@ -445,15 +466,19 @@ class Interval:
         return interval
 
 
-# TODO: return base qualities as ndarray
 def walk_bam(
     fspath: str,
     interval: Interval,
     exclude: int = 3840,
     chunk_size: int = 100_000,
     read_groups: Set[str] = set(),
+    return_ecnt: bool = False,
+    return_bq: bool = False,
+    return_md: bool = False,
 ) -> pl.DataFrame:
-    bam_arrays = BamArrays.create(chunk_size)
+    bam_arrays = BamArrays.create(
+        chunk_size, with_ecnt=return_ecnt, with_bq=return_bq, with_md=return_md
+    )
 
     chunks: list[pl.DataFrame] = []
     with pysam.AlignmentFile(fspath, "rb") as bamf:
@@ -469,8 +494,6 @@ def walk_bam(
             # Skip alignments if any of the exclude bit is set
             if bool(aln.flag & exclude):
                 continue
-            if aln.query_qualities is None:
-                continue
             if aln.query_name is None:
                 continue
 
@@ -478,7 +501,7 @@ def walk_bam(
             bam_arrays.mqs[idx] = aln.mapping_quality
             bam_arrays.propers[idx] = aln.is_proper_pair
             bam_arrays.primarys[idx] = not aln.is_secondary
-            bam_arrays.ridxs[idx] = aln.reference_id
+            bam_arrays.rnames[idx] = aln.reference_id
             bam_arrays.rstarts[idx] = aln.reference_start
             bam_arrays.rends[idx] = (
                 aln.reference_end if aln.reference_end else -1
@@ -488,16 +511,29 @@ def walk_bam(
                 if aln.cigarstring is not None
                 else -1
             )
-            bam_arrays.mm_ecnt[idx] = (
-                count_mismatch_events(str(aln.get_tag("MD")))
-                if aln.has_tag("MD")
-                else -1
-            )
-            bam_arrays.indel_ecnt[idx] = (
-                count_indel_events(aln.cigarstring)
-                if aln.cigarstring is not None
-                else -1
-            )
+            if return_ecnt:
+                bam_arrays.mm_ecnt[idx] = (
+                    count_mismatch_events(str(aln.get_tag("MD")))
+                    if aln.has_tag("MD")
+                    else -1
+                )
+                bam_arrays.indel_ecnt[idx] = (
+                    count_indel_events(aln.cigarstring)
+                    if aln.cigarstring is not None
+                    else -1
+                )
+            if return_md:
+                bam_arrays.mds[idx] = (
+                    parse_md(str(aln.get_tag("MD")))
+                    if aln.has_tag("MD")
+                    else np.array([])
+                )
+            if return_bq:
+                bam_arrays.bqs[idx] = (
+                    aln.query_qualities
+                    if aln.query_qualities is not None
+                    else np.array([])
+                )
             idx += 1
 
             if idx == chunk_size:
@@ -516,21 +552,24 @@ def walk_bam(
 
 
 if __name__ == "__main__":
-    bam = "/Users/simo/work/bio/resource/hla/1kg/NA18740/class1/realigner/NA18740.hla.realn.so.bam"
+    bam = sys.argv[1]
     bametadata = BAMetadata(bam)
     contig = "hla_a_01_01_01_01"
-    interval = Interval(contig, 0)
     interval = Interval.create(contig, 0, 4000, seqmap=bametadata.seqmap())
     print(interval)
-    rgs = {"NA18840"}
+    rgs = {"NA18740"}
     df = walk_bam(
-        bam, interval, exclude=3584, chunk_size=100_000, read_groups=rgs
+        bam,
+        interval,
+        exclude=3584,
+        chunk_size=100_000,
+        read_groups=rgs,
+        return_ecnt=True,
     )
     df = df.with_columns(
-        pl.col("ridxs")
-        .replace_strict(bametadata.idx2seqname())
-        .alias("rnames")
+        pl.col("rnames").replace_strict(bametadata.idx2seqname())
     )
     print(df.shape)
-    print(df.head())
-    print(df.tail())
+    with pl.Config(fmt_str_lengths=1000, tbl_width_chars=1000) as cfg:
+        print(df.head())
+        print(df.tail())
