@@ -374,7 +374,6 @@ class BamArrays:
     mm_ecnt: np.ndarray
     indel_ecnt: np.ndarray
     qnames: np.ndarray
-    size: int
 
     @classmethod
     def create(cls, chunk_size: int) -> "BamArrays":
@@ -401,8 +400,6 @@ class BamArrays:
                     attrs[k] = np.empty(chunk_size, dtype=np.int16)
                 case "qnames":
                     attrs[k] = np.empty(chunk_size, dtype="object")
-                case "size":
-                    attrs[k] = chunk_size
                 case _:
                     pass
         return cls(**attrs)
@@ -410,10 +407,10 @@ class BamArrays:
     def df(self, idx: int) -> pl.DataFrame:
         if idx < 0:
             raise ValueError(f"Given {idx=} must be positive")
-        if idx > self.size:
+        if idx > self.qnames.size:
             raise IndexError(
                 f"Given {idx=} is larger than the size of "
-                f"bamarray {self.size=}. "
+                f"bamarray {self.qnames.size}. "
                 "Try to create BamArrays object with bigger chunk_size."
             )
         return pl.DataFrame(
