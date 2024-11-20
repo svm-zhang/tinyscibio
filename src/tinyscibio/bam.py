@@ -401,16 +401,13 @@ class BamArrays:
                     attrs[k] = np.empty(chunk_size, dtype=bool)
                 case "primarys":
                     attrs[k] = np.empty(chunk_size, dtype=bool)
-                case "mm_ecnt":
-                    if with_ecnt:
-                        attrs[k] = np.empty(chunk_size, dtype=np.int16)
-                case "indel_ecnt":
-                    if with_ecnt:
-                        attrs[k] = np.empty(chunk_size, dtype=np.int16)
                 case "sc_bps":
                     attrs[k] = np.empty(chunk_size, dtype=np.int16)
                 case "qnames":
                     attrs[k] = np.empty(chunk_size, dtype="object")
+                case "mm_ecnt" | "indel_ecnt":
+                    if with_ecnt:
+                        attrs[k] = np.empty(chunk_size, dtype=np.int16)
                 case "bqs":
                     if with_bq:
                         attrs[k] = np.empty(chunk_size, dtype=np.ndarray)
