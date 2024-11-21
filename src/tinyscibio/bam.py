@@ -372,7 +372,7 @@ class BamArrays:
     propers: np.ndarray
     primarys: np.ndarray
     sc_bps: np.ndarray
-    qnames: np.ndarray
+    qnames: np.ndarray = field(default_factory=lambda: np.array([]))
     mm_ecnt: np.ndarray = field(default_factory=lambda: np.array([]))
     indel_ecnt: np.ndarray = field(default_factory=lambda: np.array([]))
     bqs: np.ndarray = field(default_factory=lambda: np.array([]))
@@ -385,6 +385,7 @@ class BamArrays:
         with_ecnt: bool = False,
         with_bq: bool = False,
         with_md: bool = False,
+        with_qname: bool = False,
     ) -> "BamArrays":
         attrs = {}
         for k in inspect.get_annotations(cls).keys():
@@ -404,7 +405,8 @@ class BamArrays:
                 case "sc_bps":
                     attrs[k] = np.empty(chunk_size, dtype=np.int16)
                 case "qnames":
-                    attrs[k] = np.empty(chunk_size, dtype="object")
+                    if with_qname:
+                        attrs[k] = np.empty(chunk_size, dtype="object")
                 case "mm_ecnt" | "indel_ecnt":
                     if with_ecnt:
                         attrs[k] = np.empty(chunk_size, dtype=np.int16)
@@ -421,7 +423,7 @@ class BamArrays:
     def df(self, idx: int) -> pl.DataFrame:
         if idx < 0:
             raise ValueError(f"Given {idx=} must be positive")
-        if idx > self.qnames.size:
+        if idx > self.rnames.size:
             raise IndexError(
                 f"Given {idx=} is larger than the size of "
                 f"bamarray {self.qnames.size}. "
@@ -472,9 +474,14 @@ def walk_bam(
     return_ecnt: bool = False,
     return_bq: bool = False,
     return_md: bool = False,
+    return_qname: bool = False,
 ) -> pl.DataFrame:
     bam_arrays = BamArrays.create(
-        chunk_size, with_ecnt=return_ecnt, with_bq=return_bq, with_md=return_md
+        chunk_size,
+        with_ecnt=return_ecnt,
+        with_bq=return_bq,
+        with_md=return_md,
+        with_qname=return_qname,
     )
 
     chunks: list[pl.DataFrame] = []
@@ -494,7 +501,6 @@ def walk_bam(
             if aln.query_name is None:
                 continue
 
-            bam_arrays.qnames[idx] = aln.query_name
             bam_arrays.mqs[idx] = aln.mapping_quality
             bam_arrays.propers[idx] = aln.is_proper_pair
             bam_arrays.primarys[idx] = not aln.is_secondary
@@ -531,6 +537,8 @@ def walk_bam(
                     if aln.query_qualities is not None
                     else np.array([])
                 )
+            if return_qname:
+                bam_arrays.qnames[idx] = aln.query_name
             idx += 1
 
             if idx == chunk_size:
