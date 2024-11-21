@@ -172,6 +172,24 @@ def test_bamedata_seqnames(monkeypatch):
     assert metadata.seqnames() == ["chr1", "chr2"]
 
 
+def test_bamedata_seqmap(monkeypatch):
+    init_mock_alignment_file(monkeypatch)
+    metadata = BAMetadata("test.bam")
+    assert metadata.seqmap() == {"chr1": 1000, "chr2": 2000}
+
+
+def test_bamedata_seqname2idx(monkeypatch):
+    init_mock_alignment_file(monkeypatch)
+    metadata = BAMetadata("test.bam")
+    assert metadata.seqname2idx() == {"chr1": 0, "chr2": 1}
+
+
+def test_bamedata_idx2seqname(monkeypatch):
+    init_mock_alignment_file(monkeypatch)
+    metadata = BAMetadata("test.bam")
+    assert metadata.idx2seqname() == {0: "chr1", 1: "chr2"}
+
+
 def test_bametadata_repr(monkeypatch, bam_header_no_rg):
     init_mock_alignment_file(monkeypatch, bam_header_no_rg)
     metadata = BAMetadata("test.bam")
