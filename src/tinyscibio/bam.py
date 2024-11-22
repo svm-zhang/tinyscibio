@@ -1,9 +1,8 @@
-import inspect
 import itertools
 import re
 import sys
 from collections.abc import Mapping, Sequence, Set
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from typing import Any, Optional, Union
 
 import numpy as np
@@ -11,6 +10,8 @@ import polars as pl
 import pysam
 
 from tinyscibio import parse_path
+
+_MAX_CHUNK_SIZE = 100_000_000_000
 
 
 @dataclass
@@ -372,11 +373,11 @@ class BamArrays:
     propers: np.ndarray
     primarys: np.ndarray
     sc_bps: np.ndarray
-    qnames: np.ndarray = field(default_factory=lambda: np.array([]))
-    mm_ecnt: np.ndarray = field(default_factory=lambda: np.array([]))
-    indel_ecnt: np.ndarray = field(default_factory=lambda: np.array([]))
-    bqs: np.ndarray = field(default_factory=lambda: np.array([]))
-    mds: np.ndarray = field(default_factory=lambda: np.array([]))
+    qnames: np.ndarray
+    mm_ecnt: np.ndarray
+    indel_ecnt: np.ndarray
+    bqs: np.ndarray
+    mds: np.ndarray
 
     @classmethod
     def create(
@@ -387,37 +388,58 @@ class BamArrays:
         with_md: bool = False,
         with_qname: bool = False,
     ) -> "BamArrays":
+        if chunk_size <= 0:
+            raise ValueError(f"Given {chunk_size=} must be positive number.")
+        # Put a upper cap on maximum chunk_size allowed
+        chunk_size = (
+            _MAX_CHUNK_SIZE if chunk_size > _MAX_CHUNK_SIZE else chunk_size
+        )
+
         attrs = {}
-        for k in inspect.get_annotations(cls).keys():
+        # for k in inspect.get_annotations(cls).keys():
+        for k in fields(cls):
+            k = k.name
             match k:
                 case "rnames":
-                    attrs[k] = np.empty(chunk_size, dtype=np.uint16)
+                    attrs[k] = np.zeros(chunk_size, dtype=np.uint16)
                 case "rstarts":
-                    attrs[k] = np.empty(chunk_size, dtype=np.int32)
+                    attrs[k] = np.zeros(chunk_size, dtype=np.int32)
                 case "rends":
-                    attrs[k] = np.empty(chunk_size, dtype=np.int32)
+                    attrs[k] = np.zeros(chunk_size, dtype=np.int32)
                 case "mqs":
-                    attrs[k] = np.empty(chunk_size, dtype=np.uint8)
+                    attrs[k] = np.zeros(chunk_size, dtype=np.uint8)
                 case "propers":
                     attrs[k] = np.empty(chunk_size, dtype=bool)
                 case "primarys":
                     attrs[k] = np.empty(chunk_size, dtype=bool)
                 case "sc_bps":
-                    attrs[k] = np.empty(chunk_size, dtype=np.int16)
+                    attrs[k] = np.zeros(chunk_size, dtype=np.int16)
                 case "qnames":
-                    if with_qname:
-                        attrs[k] = np.empty(chunk_size, dtype="object")
+                    attrs[k] = (
+                        np.empty(chunk_size, dtype="object")
+                        if with_qname
+                        else np.array([])
+                    )
                 case "mm_ecnt" | "indel_ecnt":
-                    if with_ecnt:
-                        attrs[k] = np.empty(chunk_size, dtype=np.int16)
+                    attrs[k] = (
+                        np.zeros(chunk_size, dtype=np.int16)
+                        if with_ecnt
+                        else np.array([])
+                    )
                 case "bqs":
-                    if with_bq:
-                        attrs[k] = np.empty(chunk_size, dtype=np.ndarray)
+                    attrs[k] = (
+                        np.empty(chunk_size, dtype=np.ndarray)
+                        if with_bq
+                        else np.array([])
+                    )
                 case "mds":
-                    if with_md:
-                        attrs[k] = np.empty(chunk_size, dtype=np.ndarray)
-                case _:
-                    pass
+                    attrs[k] = (
+                        np.empty(chunk_size, dtype=np.ndarray)
+                        if with_md
+                        else np.array([])
+                    )
+                case _:  # pragma: no cover
+                    continue
         return cls(**attrs)
 
     def df(self, idx: int) -> pl.DataFrame:
@@ -567,9 +589,8 @@ if __name__ == "__main__":
         bam,
         interval,
         exclude=3584,
-        chunk_size=100_000,
+        chunk_size=100,
         read_groups=rgs,
-        return_ecnt=True,
     )
     df = df.with_columns(
         pl.col("rnames").replace_strict(bametadata.idx2seqname())
