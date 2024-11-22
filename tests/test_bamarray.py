@@ -1,6 +1,3 @@
-import sys
-from dataclasses import fields
-
 import numpy as np
 import polars as pl
 import pytest
@@ -48,8 +45,10 @@ def default_bamarray_df(request):
     )
 
 
-def test_bamarray_create_with_default(default_fields, optional_fields):
-    chunk_size = 10
+@pytest.mark.parametrize("chunk_size", [1, 10, 100], indirect=True)
+def test_bamarray_create_with_default(
+    default_fields, optional_fields, chunk_size
+):
     bamarray = BamArrays.create(chunk_size)
     for f in default_fields:
         assert bamarray.__dict__[f].size == chunk_size
@@ -58,13 +57,16 @@ def test_bamarray_create_with_default(default_fields, optional_fields):
         assert bamarray.__dict__[f].size == 0
 
 
-def test_bamarray_create_with_optional(optional_fields):
+@pytest.mark.parametrize("chunk_size", [1, 10, 100], indirect=True)
+def test_bamarray_create_with_optional(
+    default_fields, optional_fields, chunk_size
+):
     chunk_size = 10
     bamarray = BamArrays.create(
         chunk_size, with_ecnt=True, with_bq=True, with_md=True, with_qname=True
     )
 
-    for f in optional_fields:
+    for f in default_fields + optional_fields:
         assert bamarray.__dict__[f].size == chunk_size
 
     bamarray = BamArrays.create(chunk_size, with_ecnt=True)
