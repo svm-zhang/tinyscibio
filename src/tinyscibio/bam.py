@@ -474,10 +474,23 @@ class Interval:
         end: Optional[int] = None,
         seqmap: Optional[Mapping[str, int]] = None,
     ) -> "Interval":
+        start = start if start is not None and start > 0 else 0
+        # I am not setting end when it is None as it is hard to guess
+        # unlike start
+        if end is not None:
+            if end < 0:
+                raise ValueError(
+                    f"Given end position {end=} can not be negative."
+                )
+            if end < start:
+                # I am not considering strand
+                raise ValueError(
+                    f"Given end position {end=} cannot be smaller "
+                    f"than start position {start=}."
+                )
         if seqmap is not None:
             if rname not in seqmap.keys():
                 raise KeyError(f"{rname=} is not found in the reference map.")
-            start = start if start is not None and start > 0 else 0
             end = (
                 end
                 if end is not None and end <= seqmap[rname]
