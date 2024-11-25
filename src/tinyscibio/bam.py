@@ -453,7 +453,7 @@ class BamArrays:
             )
         return pl.DataFrame(
             {
-                k: getattr(self, k)[:idx]
+                k: getattr(self, k)[:idx].copy()
                 for k in self.__dict__.keys()
                 if getattr(self, k).size > 0
             }
@@ -542,7 +542,7 @@ def walk_bam(
             bam_arrays.rnames[idx] = aln.reference_id
             bam_arrays.rstarts[idx] = aln.reference_start
             bam_arrays.rends[idx] = (
-                aln.reference_end if aln.reference_end else -1
+                aln.reference_end if aln.reference_end is not None else -1
             )
             bam_arrays.sc_bps[idx] = (
                 count_soft_clip_bases(aln.cigarstring)
@@ -591,24 +591,27 @@ def walk_bam(
     return pl.concat(chunks)
 
 
-if __name__ == "__main__":
-    bam = sys.argv[1]
-    bametadata = BAMetadata(bam)
-    contig = "hla_a_01_01_01_01"
-    interval = Interval.create(contig, 0, 4000, seqmap=bametadata.seqmap())
-    print(interval)
-    rgs = {"NA18740"}
-    df = walk_bam(
-        bam,
-        interval,
-        exclude=3584,
-        chunk_size=100,
-        read_groups=rgs,
-    )
-    df = df.with_columns(
-        pl.col("rnames").replace_strict(bametadata.idx2seqname())
-    )
-    print(df.shape)
-    with pl.Config(fmt_str_lengths=1000, tbl_width_chars=1000) as cfg:
-        print(df.head())
-        print(df.tail())
+# if __name__ == "__main__":
+#     bam = sys.argv[1]
+#     bametadata = BAMetadata(bam)
+#     contig = "hla_a_01_01_01_01"
+#     interval = Interval.create(contig, 0, 4000, seqmap=bametadata.seqmap())
+#     print(interval)
+#     rgs = {"NA18740"}
+#     df = walk_bam(
+#         bam,
+#         interval,
+#         exclude=3584,
+#         chunk_size=100,
+#         read_groups=rgs,
+#         return_ecnt=True,
+#         return_bq=True,
+#         return_qname=True,
+#     )
+#     df = df.with_columns(
+#         pl.col("rnames").replace_strict(bametadata.idx2seqname())
+#     )
+#     print(df.shape)
+#     with pl.Config(fmt_str_lengths=1000, tbl_width_chars=1000) as cfg:
+#         print(df.head())
+#         print(df.tail())
