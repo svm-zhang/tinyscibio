@@ -525,6 +525,8 @@ def walk_bam(
         for aln in bamf.fetch(
             contig=interval.rname, start=interval.start, stop=interval.end
         ):
+            if aln.query_name is None:
+                continue
             # Skip records whose read group is not defined in read_groups
             if read_groups:
                 rg = aln.get_tag("RG") if aln.has_tag("RG") else ""
@@ -532,8 +534,6 @@ def walk_bam(
                     continue
             # Skip alignments if any of the exclude bit is set
             if bool(aln.flag & exclude):
-                continue
-            if aln.query_name is None:
                 continue
 
             bam_arrays.mqs[idx] = aln.mapping_quality
