@@ -66,7 +66,7 @@ class MockAlignmentFile:
         propers = [True, True, True, False]
         secondaries = [False, False, True, False]
         qnames = ["r1", "r2", "r3"]
-        rgs = ["grp1", "grp2", "grp1"]
+        rgs = ["grp1", "grp2", "grp1", "grp1"]
         mds = [
             "75",
             "37A37",
@@ -166,7 +166,7 @@ def init_mock_alignment_file(monkeypatch):
 
 def test_walk_bam(monkeypatch):
     init_mock_alignment_file(monkeypatch)
-    interval = Interval.create("chr1", 100, 103)
+    interval = Interval.create("chr1", 100, 104)
     res_df = walk_bam(
         "test.bam",
         interval,
@@ -245,6 +245,18 @@ def test_walk_bam_filtered_by_rg(monkeypatch):
     assert (
         res_df["qnames"].to_numpy() == np.array(["r1", "r3"], dtype="object")
     ).all()
+
+
+def test_walk_bam_return_no_qname(monkeypatch):
+    init_mock_alignment_file(monkeypatch)
+    interval = Interval.create("chr1", 100, 103)
+    res_df = walk_bam(
+        "test.bam",
+        interval,
+        return_qname=False,
+    )
+
+    assert "qname" not in res_df.columns
 
 
 def test_walk_bam_return_empty_df(monkeypatch):
