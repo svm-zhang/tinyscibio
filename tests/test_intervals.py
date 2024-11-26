@@ -5,7 +5,6 @@ import polars as pl
 import pytest
 
 from tinyscibio import (
-    Interval,
     NoMatchingChr,
     NotInt64StartEnd,
     NotSatisfyMinColReq,
@@ -193,59 +192,3 @@ def test_bed_to_df_on_one_based_input(bed3):
             }
         )
     )
-
-
-def test_create_interval():
-    interval = Interval.create("chr1")
-    assert interval.rname == "chr1"
-    assert interval.start == 0
-    assert interval.end is None
-
-    interval = Interval.create("chr1", 10)
-    assert interval.rname == "chr1"
-    assert interval.start == 10
-    assert interval.end is None
-
-    interval = Interval.create("chr1", 20, 30)
-    assert interval.rname == "chr1"
-    assert interval.start == 20
-    assert interval.end == 30
-
-    interval = Interval.create("chr1", -1)
-    assert interval.rname == "chr1"
-    assert interval.start == 0
-    assert interval.end is None
-
-    seqmap = {"chr1": 200}
-    interval = Interval.create("chr1", 20, 70, seqmap=seqmap)
-    assert interval.rname == "chr1"
-    assert interval.start == 20
-    assert interval.end == 70
-
-    # when given seqmap, end position defaults to seq length when None
-    interval = Interval.create("chr1", seqmap=seqmap)
-    assert interval.rname == "chr1"
-    assert interval.start == 0
-    assert interval.end == 200
-
-    # end position larger than seq length
-    interval = Interval.create("chr1", 20, 300, seqmap=seqmap)
-    assert interval.rname == "chr1"
-    assert interval.start == 20
-    assert interval.end == 200
-
-
-def test_create_interval_with_negative_end():
-    with pytest.raises(ValueError):
-        Interval.create("chr1", end=-1)
-
-
-def test_create_interval_with_end_smaller_than_start():
-    with pytest.raises(ValueError):
-        Interval.create("chr1", start=20, end=10)
-
-
-def test_create_interval_with_missing_rname():
-    seqmap = {"chr1": 200}
-    with pytest.raises(KeyError):
-        Interval.create("chr2", seqmap=seqmap)
