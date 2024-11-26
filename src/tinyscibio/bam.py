@@ -396,7 +396,6 @@ class BamArrays:
         )
 
         attrs = {}
-        # for k in inspect.get_annotations(cls).keys():
         for k in fields(cls):
             k = k.name
             match k:
@@ -460,49 +459,34 @@ class BamArrays:
         )
 
 
-@dataclass
-class Interval:
-    rname: str
-    start: Optional[int] = None
-    end: Optional[int] = None
+def parse_region(
+    region_string: str, one_based: bool = True
+) -> tuple[str, int | None, int | None]:
+    # The minimal presentation should be region/contig/chrom name
+    m = re.match(r"^([\w\.]+)?(?::(\d+)-?)?(\d+)?$", region_string)
 
-    @classmethod
-    def create(
-        cls,
-        rname: str,
-        start: Optional[int] = None,
-        end: Optional[int] = None,
-        seqmap: Optional[Mapping[str, int]] = None,
-    ) -> "Interval":
-        start = start if start is not None and start > 0 else 0
-        # I am not setting end when it is None as it is hard to guess
-        # unlike start
-        if end is not None:
-            if end < 0:
-                raise ValueError(
-                    f"Given end position {end=} can not be negative."
-                )
-            if end < start:
-                # I am not considering strand
-                raise ValueError(
-                    f"Given end position {end=} cannot be smaller "
-                    f"than start position {start=}."
-                )
-        if seqmap is not None:
-            if rname not in seqmap.keys():
-                raise KeyError(f"{rname=} is not found in the reference map.")
-            end = (
-                end
-                if end is not None and end <= seqmap[rname]
-                else seqmap[rname]
+    if not m:
+        raise ValueError(f"Invalid region string format: {region_string}")
+
+    rname, start, end = m.groups()
+    start = int(start) if start is not None else start
+    if one_based:
+        start = start - 1
+    end = int(end) if end is not None else end
+
+    if start is not None and end is not None:
+        if start > end:
+            raise ValueError(
+                f"{start=} cannot be larger than {end=}. "
+                f"Please check input region string {region_string=}."
             )
-        interval = cls(rname, start, end)
-        return interval
+
+    return (rname, start, end)
 
 
 def walk_bam(
     fspath: str,
-    interval: Interval,
+    region: str,
     exclude: int = 3840,
     chunk_size: int = 100_000,
     read_groups: Set[str] = set(),
@@ -519,12 +503,12 @@ def walk_bam(
         with_qname=return_qname,
     )
 
+    rname, start, end = parse_region(region)
+
     chunks: list[pl.DataFrame] = []
     with pysam.AlignmentFile(fspath, "rb") as bamf:
         idx = 0
-        for aln in bamf.fetch(
-            contig=interval.rname, start=interval.start, stop=interval.end
-        ):
+        for aln in bamf.fetch(contig=rname, start=start, stop=end):
             if aln.query_name is None:
                 continue
             # Skip records whose read group is not defined in read_groups
@@ -588,24 +572,26 @@ def walk_bam(
     if not chunks:
         return bam_arrays.df(idx=0)
 
-    return pl.concat(chunks)
+    return pl.concat(chunks, rechunk=True)
 
 
 # if __name__ == "__main__":
 #     bam = sys.argv[1]
 #     bametadata = BAMetadata(bam)
 #     contig = "hla_a_01_01_01_01"
-#     interval = Interval.create(contig, 0, 4000, seqmap=bametadata.seqmap())
-#     print(interval)
+#     # interval = Interval.create(contig, 0, 4000, seqmap=bametadata.seqmap())
+#     region_string = f"{contig}:0-4000"
+#     region_string = f"{contig}:100-1000"
+#     # region_string = "100-1000"
+#     region_string = "chr1:100-1000"
 #     rgs = {"NA18740"}
 #     df = walk_bam(
 #         bam,
-#         interval,
-#         exclude=3584,
+#         region_string,
 #         chunk_size=100,
+#         exclude=3584,
 #         read_groups=rgs,
 #         return_ecnt=True,
-#         return_bq=True,
 #         return_qname=True,
 #     )
 #     df = df.with_columns(
