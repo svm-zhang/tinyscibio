@@ -4,7 +4,7 @@ from typing import Optional
 import numpy as np
 import pytest
 
-from tinyscibio import Interval, walk_bam
+from tinyscibio import walk_bam
 
 
 @pytest.fixture
@@ -166,10 +166,10 @@ def init_mock_alignment_file(monkeypatch):
 
 def test_walk_bam(monkeypatch):
     init_mock_alignment_file(monkeypatch)
-    interval = Interval.create("chr1", 100, 104)
+    region = "chr1:100-104"
     res_df = walk_bam(
         "test.bam",
-        interval,
+        region,
         chunk_size=2,
         exclude=3584,
         return_ecnt=True,
@@ -232,10 +232,10 @@ def test_walk_bam(monkeypatch):
 # empty dataframe to return
 def test_walk_bam_filtered_by_rg(monkeypatch):
     init_mock_alignment_file(monkeypatch)
-    interval = Interval.create("chr1", 100, 103)
+    region = "chr1:100-103"
     res_df = walk_bam(
         "test.bam",
-        interval,
+        region,
         exclude=3584,
         read_groups={"grp1"},
         return_qname=True,
@@ -249,10 +249,10 @@ def test_walk_bam_filtered_by_rg(monkeypatch):
 
 def test_walk_bam_return_no_qname(monkeypatch):
     init_mock_alignment_file(monkeypatch)
-    interval = Interval.create("chr1", 100, 103)
+    region = "chr1:100-103"
     res_df = walk_bam(
         "test.bam",
-        interval,
+        region,
         return_qname=False,
     )
 
@@ -261,10 +261,10 @@ def test_walk_bam_return_no_qname(monkeypatch):
 
 def test_walk_bam_return_empty_df(monkeypatch):
     init_mock_alignment_file(monkeypatch)
-    interval = Interval.create("chr1", 100, 103)
+    region = "chr1:100-103"
     res_df = walk_bam(
         "test.bam",
-        interval,
+        region,
         exclude=2,
         read_groups={"grp1", "grp2"},
         return_qname=False,
@@ -275,10 +275,10 @@ def test_walk_bam_return_empty_df(monkeypatch):
 
 def test_walk_bam_filtered_by_exclude(monkeypatch):
     init_mock_alignment_file(monkeypatch)
-    interval = Interval.create("chr1", 100, 103)
+    region = "chr1:100-103"
     res_df = walk_bam(
         "test.bam",
-        interval,
+        region,
         exclude=3840,
         return_qname=True,
     )
