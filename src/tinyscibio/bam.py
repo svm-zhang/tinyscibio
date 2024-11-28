@@ -364,6 +364,7 @@ def count_mismatch_events(md: Union[str, Sequence[str]]) -> int:
     return len([e for e in md if e.isalpha()])
 
 
+# TODO: make BamArrays not exposed to outside
 @dataclass
 class BamArrays:
     rnames: np.ndarray
@@ -462,6 +463,40 @@ class BamArrays:
 def parse_region(
     region_string: str, one_based: bool = True
 ) -> tuple[str, int | None, int | None]:
+    """
+    Parse a given samtools-style region string into a tuple of rname,
+    start, and end.
+
+    Examples:
+        >>> from tinyscibio import parse_region
+        >>> region_str = "chr1"
+        >>> assert parse_region(region_str) == ("chr1", None, None)
+        true
+
+        >>> region_str = "chr1:100"
+        >>> assert parse_region(region_str) == ("chr1", 100, None)
+        true
+
+        >>> region_str = "chr1:100-1000"
+        >>> assert parse_region(region_str) == ("chr1", 100, 1000)
+        true
+
+        >>> region_str = "chr1:100-1000"
+        >>> assert parse_region(region_str, one_based=True) == ("chr1", 99, 1000)
+        true
+
+    Parameters:
+        region_string: user-provide string following samtools-style
+                       region definition.
+        one_based: whether or not coordinate in the given string is one-based.
+
+    Returns:
+        A tuple of (rname, start, end).
+
+    Raises:
+        ValueError: When parser finds no matching pattern, or when start
+                    is larger than end coordinate in the given region string.
+    """
     # The minimal presentation should be region/contig/chrom name
     m = re.match(r"^([\w\.]+)?(?::(\d+)-?)?(\d+)?$", region_string)
 
@@ -484,6 +519,7 @@ def parse_region(
     return (rname, start, end)
 
 
+# TODO: add until_eof
 def walk_bam(
     fspath: str,
     region: str,
