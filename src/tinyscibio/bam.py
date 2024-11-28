@@ -518,7 +518,6 @@ def parse_region(
     return (rname, start, end)
 
 
-# TODO: add until_eof
 def walk_bam(
     fspath: str,
     region: str,
@@ -530,6 +529,66 @@ def walk_bam(
     return_md: bool = False,
     return_qname: bool = False,
 ) -> pl.DataFrame:
+    """
+    Traverse BAM file across given region and collect read-level alignment
+    summary into a dataframe.
+
+    Input BAM file must be sorted and indexed to make the walk feasible.
+
+    Examples:
+        Traverse entire region of HLA_A_01_01_01_01 allele:
+        >>> from tinyscibio import walk_bam
+        >>> bam_fspath = "example.bam"
+        >>> region_str = "hla_a_01_01_01_01"
+        >>> df = walk_bam(bam_fspath, region_str)
+        >>> df.head()
+        shape: (5, 7)
+        ┌───────────────────┬─────────┬───────┬─────┬─────────┬──────────┬────────┐
+        │ rnames            ┆ rstarts ┆ rends ┆ mqs ┆ propers ┆ primarys ┆ sc_bps │
+        │ ---               ┆ ---     ┆ ---   ┆ --- ┆ ---     ┆ ---      ┆ ---    │
+        │ str               ┆ i32     ┆ i32   ┆ u8  ┆ bool    ┆ bool     ┆ i16    │
+        ╞═══════════════════╪═════════╪═══════╪═════╪═════════╪══════════╪════════╡
+        │ hla_a_01_01_01_01 ┆ 4       ┆ 104   ┆ 0   ┆ true    ┆ false    ┆ 0      │
+        │ hla_a_01_01_01_01 ┆ 4       ┆ 102   ┆ 0   ┆ true    ┆ false    ┆ 0      │
+        │ hla_a_01_01_01_01 ┆ 128     ┆ 229   ┆ 0   ┆ true    ┆ false    ┆ 0      │
+        │ hla_a_01_01_01_01 ┆ 287     ┆ 388   ┆ 0   ┆ true    ┆ false    ┆ 0      │
+        │ hla_a_01_01_01_01 ┆ 294     ┆ 395   ┆ 0   ┆ true    ┆ false    ┆ 0      │
+        └───────────────────┴─────────┴───────┴─────┴─────────┴──────────┴────────┘
+
+        Traverse the same region and collect more alignment summaries:
+        >>> bam_fspath = "example.bam"
+        >>> region_str = "hla_a_01_01_01_01"
+        >>> df = walk_bam(bam_fspath, region_str, return_ecnt=True, return_qname=True)
+        >>> df.head()
+        shape: (5, 10)
+        ┌───────────────────┬─────────┬───────┬─────┬───┬────────┬────────────────────┬─────────┬────────────┐
+        │ rnames            ┆ rstarts ┆ rends ┆ mqs ┆ … ┆ sc_bps ┆ qnames             ┆ mm_ecnt ┆ indel_ecnt │
+        │ ---               ┆ ---     ┆ ---   ┆ --- ┆   ┆ ---    ┆ ---                ┆ ---     ┆ ---        │
+        │ str               ┆ i32     ┆ i32   ┆ u8  ┆   ┆ i16    ┆ str                ┆ i16     ┆ i16        │
+        ╞═══════════════════╪═════════╪═══════╪═════╪═══╪════════╪════════════════════╪═════════╪════════════╡
+        │ hla_a_01_01_01_01 ┆ 4       ┆ 104   ┆ 0   ┆ … ┆ 0      ┆ SRR702076.16980922 ┆ 0       ┆ 1          │
+        │ hla_a_01_01_01_01 ┆ 4       ┆ 102   ┆ 0   ┆ … ┆ 0      ┆ SRR702076.16980922 ┆ 0       ┆ 1          │
+        │ hla_a_01_01_01_01 ┆ 128     ┆ 229   ┆ 0   ┆ … ┆ 0      ┆ SRR702076.10444434 ┆ 6       ┆ 0          │
+        │ hla_a_01_01_01_01 ┆ 287     ┆ 388   ┆ 0   ┆ … ┆ 0      ┆ SRR702076.10444434 ┆ 10      ┆ 0          │
+        │ hla_a_01_01_01_01 ┆ 294     ┆ 395   ┆ 0   ┆ … ┆ 0      ┆ SRR702076.2819225  ┆ 0       ┆ 0          │
+        └───────────────────┴─────────┴───────┴─────┴───┴────────┴────────────────────┴─────────┴────────────┘
+
+
+    Parameters:
+        fspath: Path pointing to the BAM file.
+        region: Region string in samtools style, e.g. chr1:100-1000.
+        exclude: Skip alignments whose flags are set with any bits defined.
+        chunk_size: Maximum size of arrays to be held in memory at one time.
+        read_groups: Set of read groups whose alignments are retrieved.
+        return_ecnt: Whether or not returning number of mismatch+indel events.
+        return_bq: Whether or not returning base qualities.
+        return_md: Whether or not returning parsed MD tuples.
+        return_qname: Whether or not returning query/read names.
+
+    Returns:
+        Collection of summaries of read alignments in dataframe.
+
+    """
     bam_arrays = _BamArrays.create(
         chunk_size,
         with_ecnt=return_ecnt,
@@ -616,9 +675,7 @@ def walk_bam(
 #     contig = "hla_a_01_01_01_01"
 #     # interval = Interval.create(contig, 0, 4000, seqmap=bametadata.seqmap())
 #     region_string = f"{contig}:0-4000"
-#     region_string = f"{contig}:100-1000"
-#     # region_string = "100-1000"
-#     region_string = "chr1:100-1000"
+#     region_string = f"{contig}:100"
 #     rgs = {"NA18740"}
 #     df = walk_bam(
 #         bam,
