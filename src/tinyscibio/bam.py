@@ -364,9 +364,8 @@ def count_mismatch_events(md: Union[str, Sequence[str]]) -> int:
     return len([e for e in md if e.isalpha()])
 
 
-# TODO: make BamArrays not exposed to outside
 @dataclass
-class BamArrays:
+class _BamArrays:
     rnames: np.ndarray
     rstarts: np.ndarray
     rends: np.ndarray
@@ -388,7 +387,7 @@ class BamArrays:
         with_bq: bool = False,
         with_md: bool = False,
         with_qname: bool = False,
-    ) -> "BamArrays":
+    ) -> "_BamArrays":
         if chunk_size <= 0:
             raise ValueError(f"Given {chunk_size=} must be positive number.")
         # Put a upper cap on maximum chunk_size allowed
@@ -531,7 +530,7 @@ def walk_bam(
     return_md: bool = False,
     return_qname: bool = False,
 ) -> pl.DataFrame:
-    bam_arrays = BamArrays.create(
+    bam_arrays = _BamArrays.create(
         chunk_size,
         with_ecnt=return_ecnt,
         with_bq=return_bq,
