@@ -534,14 +534,43 @@ def walk_bam(
     Traverse BAM file across given region and collect read-level alignment
     summary into a dataframe.
 
-    Input BAM file must be sorted and indexed to make the walk feasible.
+    Input BAM file must be sorted and indexed to make the walk feasible. Value
+    to region parameter follows the samtools format, and therefore positions
+    are 1-based.
+
+    By default, walk_bam returns a dataframe with 7 columns:
+        1. rnames: reference index (easy to map back to sequence name)
+        2. rstarts: 0-based start position on mapped reference
+        3. rends: same as above but marking the end of an alignment
+        4. mqs: mapping qualities
+        5. propers: whether or not a given alignment is properly aligned
+        6. primarys: whether or not a given alignment is primary
+        7. sc_bps: # of soft-clipped base pairs
+
+    When return_ecnt is set,
+        8. mm_ecnt: # of mismatch events per alignment
+        9. mm_ecnt: # of indel events per alignment
+
+    When return_qname is set,
+        10. qnames: read name
+
+    When return_bq is set,
+        11. bqs: base qualities in np.ndarray per alignment
+
+    When return_md is set,
+        12. mds: parsed MD in np.ndarray per alignment
 
     Examples:
-        Traverse entire region of HLA_A_01_01_01_01 allele:
-        >>> from tinyscibio import walk_bam
+        >>> from tinyscibio import BAMetadata, walk_bam
         >>> bam_fspath = "example.bam"
+        >>> bametadata = BAMetadata(bam_fspath)
+
+        Traverse entire region of HLA_A_01_01_01_01 allele:
         >>> region_str = "hla_a_01_01_01_01"
         >>> df = walk_bam(bam_fspath, region_str)
+        >>> df = df.with_columns(
+            pl.col("rnames").replace_strict(bametadata.idx2seqnames())
+        )
         >>> df.head()
         shape: (5, 7)
         ┌───────────────────┬─────────┬───────┬─────┬─────────┬──────────┬────────┐
@@ -557,9 +586,10 @@ def walk_bam(
         └───────────────────┴─────────┴───────┴─────┴─────────┴──────────┴────────┘
 
         Traverse the same region and collect more alignment summaries:
-        >>> bam_fspath = "example.bam"
-        >>> region_str = "hla_a_01_01_01_01"
         >>> df = walk_bam(bam_fspath, region_str, return_ecnt=True, return_qname=True)
+        >>> df = df.with_columns(
+            pl.col("rnames").replace_strict(bametadata.idx2seqnames())
+        )
         >>> df.head()
         shape: (5, 10)
         ┌───────────────────┬─────────┬───────┬─────┬───┬────────┬────────────────────┬─────────┬────────────┐
@@ -573,6 +603,28 @@ def walk_bam(
         │ hla_a_01_01_01_01 ┆ 287     ┆ 388   ┆ 0   ┆ … ┆ 0      ┆ SRR702076.10444434 ┆ 10      ┆ 0          │
         │ hla_a_01_01_01_01 ┆ 294     ┆ 395   ┆ 0   ┆ … ┆ 0      ┆ SRR702076.2819225  ┆ 0       ┆ 0          │
         └───────────────────┴─────────┴───────┴─────┴───┴────────┴────────────────────┴─────────┴────────────┘
+
+        Traverse the HLA_A_01_01_01_01 allele starting at position 100. Note
+        that walk_bam has different behavior from pysam.AlignmentFile.fetch()
+        function. It only grabs alignments from postion 100 and onwards.
+        >>> region_str = "hla_a_01_01_01_01:100"
+        >>> df = walk_bam(bam_fspath, region_str, return_ecnt=True)
+        >>> df = df.with_columns(
+            pl.col("rnames").replace_strict(bametadata.idx2seqnames())
+        )
+        >>> df.head()
+        shape: (5, 9)
+        ┌───────────────────┬─────────┬───────┬─────┬───┬──────────┬────────┬─────────┬────────────┐
+        │ rnames            ┆ rstarts ┆ rends ┆ mqs ┆ … ┆ primarys ┆ sc_bps ┆ mm_ecnt ┆ indel_ecnt │
+        │ ---               ┆ ---     ┆ ---   ┆ --- ┆   ┆ ---      ┆ ---    ┆ ---     ┆ ---        │
+        │ str               ┆ i32     ┆ i32   ┆ u8  ┆   ┆ bool     ┆ i16    ┆ i16     ┆ i16        │
+        ╞═══════════════════╪═════════╪═══════╪═════╪═══╪══════════╪════════╪═════════╪════════════╡
+        │ hla_a_01_01_01_01 ┆ 128     ┆ 229   ┆ 0   ┆ … ┆ false    ┆ 0      ┆ 6       ┆ 0          │
+        │ hla_a_01_01_01_01 ┆ 287     ┆ 388   ┆ 0   ┆ … ┆ false    ┆ 0      ┆ 10      ┆ 0          │
+        │ hla_a_01_01_01_01 ┆ 294     ┆ 395   ┆ 0   ┆ … ┆ false    ┆ 0      ┆ 0       ┆ 0          │
+        │ hla_a_01_01_01_01 ┆ 341     ┆ 442   ┆ 0   ┆ … ┆ false    ┆ 0      ┆ 0       ┆ 0          │
+        │ hla_a_01_01_01_01 ┆ 638     ┆ 724   ┆ 0   ┆ … ┆ false    ┆ 0      ┆ 9       ┆ 1          │
+        └───────────────────┴─────────┴───────┴─────┴───┴──────────┴────────┴─────────┴────────────┘
 
 
     Parameters:
