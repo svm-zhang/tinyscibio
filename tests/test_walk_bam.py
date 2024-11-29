@@ -24,7 +24,7 @@ class MockAlignmentHeader:
                 {"ID": "RG1", "SM": "Sample1"},
                 {"ID": "RG2", "SM": "Sample2"},
             ],
-            "SQ": [{"SN": "chr1", "LN": "1000"}, {"SN": "chr2", "LN": "2000"}],
+            "SQ": [{"SN": "chr1", "LN": "120"}, {"SN": "chr2", "LN": "2000"}],
         }
 
     def __getitem__(self, k):
@@ -57,7 +57,16 @@ class MockAlignmentFile:
         start: Optional[int] = None,
         stop: Optional[int] = None,
     ):
+        # FIXME: this is better defined in the class for each available contig
+        # FIXME: becuase bam_start and bam_end defines what inside the BAM
+        bam_start = 90  # the very first mapped position on rname in the BAM
+        # the very last mapped position on rname in the BAM
+        # here simply set to length of the given contig
+        bam_end = int(self.seqmap()[contig])
+
         rid = self.seqname2idx()[contig]
+        # This is the requested start position from user
+        # Do not confuse this with bam_start below
         start = start if start is not None else 0
         end = stop if stop is not None else self.seqmap()[contig]
         flags = [99, 163, 403, 3153]
@@ -72,8 +81,15 @@ class MockAlignmentFile:
             "37A37",
             "25^C49",
         ]
-        for i in range(start, end):
-            i = i % 4
+        if end < bam_start:
+            return
+        if start > bam_end:
+            return
+        for pos in range(bam_start, bam_end):
+            # mock the logic when pos is larger than the requested end position
+            if pos >= end:
+                break
+            i = pos % 4
             match i:
                 case 0:
                     yield MockAlignmentSegment(
@@ -82,8 +98,8 @@ class MockAlignmentFile:
                         is_proper_pair=propers[i],
                         is_secondary=secondaries[i],
                         reference_id=rid,
-                        reference_start=start + i,
-                        reference_end=start + i + 75,
+                        reference_start=pos,
+                        reference_end=pos + 75,
                         cigarstring=cigarstrings[i],
                         tags={"MD": mds[i], "RG": rgs[i]},
                         query_name=qnames[i],
@@ -96,8 +112,8 @@ class MockAlignmentFile:
                         is_proper_pair=propers[i],
                         is_secondary=secondaries[i],
                         reference_id=rid,
-                        reference_start=start + i,
-                        reference_end=start + i + 75,
+                        reference_start=pos,
+                        reference_end=pos + 75,
                         cigarstring=cigarstrings[i],
                         tags={"MD": mds[i], "RG": rgs[i]},
                         query_name=qnames[i],
@@ -110,7 +126,7 @@ class MockAlignmentFile:
                         is_proper_pair=propers[i],
                         is_secondary=secondaries[i],
                         reference_id=rid,
-                        reference_start=start + i,
+                        reference_start=pos,
                         reference_end=None,
                         cigarstring=None,
                         tags={"RG": rgs[i]},
@@ -124,7 +140,7 @@ class MockAlignmentFile:
                         is_proper_pair=propers[i],
                         is_secondary=secondaries[i],
                         reference_id=rid,
-                        reference_start=start + i,
+                        reference_start=pos,
                         reference_end=None,
                         cigarstring=None,
                         tags={"RG": rgs[i]},
@@ -177,6 +193,7 @@ def test_walk_bam(monkeypatch):
         return_md=True,
         return_qname=True,
     )
+    print(res_df)
     assert res_df.shape[0] == 3
     assert (
         res_df["rnames"].to_numpy() == np.array([0, 0, 0], dtype=np.uint16)
@@ -259,7 +276,19 @@ def test_walk_bam_return_no_qname(monkeypatch):
     assert "qname" not in res_df.columns
 
 
-def test_walk_bam_return_empty_df(monkeypatch):
+def test_walk_bam_skip_none_qname(monkeypatch):
+    init_mock_alignment_file(monkeypatch)
+    region = "chr1:100-104"
+    res_df = walk_bam(
+        "test.bam",
+        region,
+        exclude=3584,
+    )
+
+    assert res_df.shape[0] == 3
+
+
+def test_walk_bam_return_empty_df_because_rg(monkeypatch):
     init_mock_alignment_file(monkeypatch)
     region = "chr1:100-103"
     res_df = walk_bam(
@@ -287,3 +316,18 @@ def test_walk_bam_filtered_by_exclude(monkeypatch):
     assert (
         res_df["qnames"].to_numpy() == np.array(["r1", "r2"], dtype="object")
     ).all()
+
+
+def test_walk_bam_grabs_at_and_after_start_position(monkeypatch):
+    init_mock_alignment_file(monkeypatch)
+    # one-based, the first fetched position should be 101
+    region = "chr1:102-103"
+    res_df = walk_bam(
+        "test.bam",
+        region,
+        exclude=3840,
+        return_qname=True,
+    )
+
+    assert res_df.shape[0] == 1
+    assert res_df[0, "rstarts"] == 101
