@@ -518,6 +518,7 @@ def parse_region(
     return (rname, start, end)
 
 
+# TODO: fix docstring to mention region string is one-based
 def walk_bam(
     fspath: str,
     region: str,
@@ -598,11 +599,17 @@ def walk_bam(
     )
 
     rname, start, end = parse_region(region)
+    # if only rname is given, starting from beginning
+    start = 0 if start is None else start
 
     chunks: list[pl.DataFrame] = []
     with pysam.AlignmentFile(fspath, "rb") as bamf:
         idx = 0
         for aln in bamf.fetch(contig=rname, start=start, stop=end):
+            # Make sure to only grab alignments at and after given start
+            # position and before given end position
+            if aln.reference_start < start:
+                continue
             if aln.query_name is None:
                 continue
             # Skip records whose read group is not defined in read_groups
@@ -684,7 +691,6 @@ def walk_bam(
 #         exclude=3584,
 #         read_groups=rgs,
 #         return_ecnt=True,
-#         return_qname=True,
 #     )
 #     df = df.with_columns(
 #         pl.col("rnames").replace_strict(bametadata.idx2seqname())
