@@ -59,3 +59,17 @@ def test_parse_region_with_invalid_input_str(region):
 def test_parse_region_with_start_larger_than_end(region):
     with pytest.raises(ValueError):
         parse_region(region)
+
+
+@pytest.mark.parametrize(
+    "region, one_based, expect",
+    [
+        ("chr1:1-10", True, 0),
+        ("chr1:0-10", True, 0),
+        ("chr1:1-10", False, 1),
+        ("chr1:0-10", False, 0),
+    ],
+)
+def test_parse_region_if_handle_start_pos_correct(region, one_based, expect):
+    _, start, _ = parse_region(region, one_based)
+    assert start == expect
