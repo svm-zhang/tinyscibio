@@ -1,11 +1,12 @@
 import itertools
 import re
 import sys
-from collections.abc import Mapping, Sequence, Set
+from collections.abc import Sequence, Set
 from dataclasses import dataclass, field, fields
 from typing import Any, Optional, Union
 
 import numpy as np
+import numpy.typing as npt
 import polars as pl
 import pysam
 
@@ -366,18 +367,18 @@ def count_mismatch_events(md: Union[str, Sequence[str]]) -> int:
 
 @dataclass
 class _BamArrays:
-    rnames: np.ndarray
-    rstarts: np.ndarray
-    rends: np.ndarray
-    mqs: np.ndarray
-    propers: np.ndarray
-    primarys: np.ndarray
-    sc_bps: np.ndarray
-    qnames: np.ndarray
-    mm_ecnt: np.ndarray
-    indel_ecnt: np.ndarray
-    bqs: np.ndarray
-    mds: np.ndarray
+    rnames: npt.NDArray[np.uint16]
+    rstarts: npt.NDArray[np.int32]
+    rends: npt.NDArray[np.int32]
+    mqs: npt.NDArray[np.uint8]
+    propers: npt.NDArray[np.bool]
+    primarys: npt.NDArray[np.bool]
+    sc_bps: npt.NDArray[np.int16]
+    qnames: npt.NDArray[np.object_]
+    mm_ecnt: npt.NDArray[np.int16]
+    indel_ecnt: npt.NDArray[np.int16]
+    bqs: npt.NDArray[np.uint8]
+    mds: npt.NDArray[np.object_]
 
     @classmethod
     def create(
@@ -395,44 +396,44 @@ class _BamArrays:
             _MAX_CHUNK_SIZE if chunk_size > _MAX_CHUNK_SIZE else chunk_size
         )
 
-        attrs = {}
+        attrs: dict[str, Any] = {}
         for k in fields(cls):
-            k = k.name
-            match k:
+            f_name = k.name
+            match f_name:
                 case "rnames":
-                    attrs[k] = np.zeros(chunk_size, dtype=np.uint16)
+                    attrs[f_name] = np.zeros(chunk_size, dtype=np.uint16)
                 case "rstarts":
-                    attrs[k] = np.zeros(chunk_size, dtype=np.int32)
+                    attrs[f_name] = np.zeros(chunk_size, dtype=np.int32)
                 case "rends":
-                    attrs[k] = np.zeros(chunk_size, dtype=np.int32)
+                    attrs[f_name] = np.zeros(chunk_size, dtype=np.int32)
                 case "mqs":
-                    attrs[k] = np.zeros(chunk_size, dtype=np.uint8)
+                    attrs[f_name] = np.zeros(chunk_size, dtype=np.uint8)
                 case "propers":
-                    attrs[k] = np.empty(chunk_size, dtype=bool)
+                    attrs[f_name] = np.empty(chunk_size, dtype=bool)
                 case "primarys":
-                    attrs[k] = np.empty(chunk_size, dtype=bool)
+                    attrs[f_name] = np.empty(chunk_size, dtype=bool)
                 case "sc_bps":
-                    attrs[k] = np.zeros(chunk_size, dtype=np.int16)
+                    attrs[f_name] = np.zeros(chunk_size, dtype=np.int16)
                 case "qnames":
-                    attrs[k] = (
+                    attrs[f_name] = (
                         np.empty(chunk_size, dtype="object")
                         if with_qname
                         else np.array([])
                     )
                 case "mm_ecnt" | "indel_ecnt":
-                    attrs[k] = (
+                    attrs[f_name] = (
                         np.zeros(chunk_size, dtype=np.int16)
                         if with_ecnt
                         else np.array([])
                     )
                 case "bqs":
-                    attrs[k] = (
+                    attrs[f_name] = (
                         np.empty(chunk_size, dtype=np.ndarray)
                         if with_bq
                         else np.array([])
                     )
                 case "mds":
-                    attrs[k] = (
+                    attrs[f_name] = (
                         np.empty(chunk_size, dtype=np.ndarray)
                         if with_md
                         else np.array([])
@@ -503,9 +504,15 @@ def parse_region(
         raise ValueError(f"Invalid region string format: {region_string}")
 
     rname, start, end = m.groups()
-    start = int(start) if start is not None else start
-    if one_based:
-        start = start - 1
+    # I do not need to worry about if start and end position to be negative
+    # If user provides such string, the re parser above will complain
+    if start is not None:
+        # if one-based, start = 1 => start = max(0, start-1) => start = 0
+        # if one-based, start = 0 => start = max(0, start-1) => start = 0
+        # if not one-based, start = 1 => start = max(0, start) => start = 1
+        # if not one-based, start = 0 => start = max(0, start) => start = 0
+        start = int(start) if not one_based else int(start) - 1
+        start = max(0, start)
     end = int(end) if end is not None else end
 
     if start is not None and end is not None:
@@ -518,13 +525,12 @@ def parse_region(
     return (rname, start, end)
 
 
-# TODO: fix docstring to mention region string is one-based
 def walk_bam(
     fspath: str,
     region: str,
     exclude: int = 3840,
     chunk_size: int = 100_000,
-    read_groups: Set[str] = set(),
+    read_groups: Optional[Set[str]] = None,
     return_ecnt: bool = False,
     return_bq: bool = False,
     return_md: bool = False,
@@ -626,7 +632,6 @@ def walk_bam(
         │ hla_a_01_01_01_01 ┆ 638     ┆ 724   ┆ 0   ┆ … ┆ false    ┆ 0      ┆ 9       ┆ 1          │
         └───────────────────┴─────────┴───────┴─────┴───┴──────────┴────────┴─────────┴────────────┘
 
-
     Parameters:
         fspath: Path pointing to the BAM file.
         region: Region string in samtools style, e.g. chr1:100-1000.
@@ -665,7 +670,7 @@ def walk_bam(
             if aln.query_name is None:
                 continue
             # Skip records whose read group is not defined in read_groups
-            if read_groups:
+            if read_groups is not None:
                 rg = aln.get_tag("RG") if aln.has_tag("RG") else ""
                 if rg not in read_groups:
                     continue
@@ -705,7 +710,7 @@ def walk_bam(
                 )
             if return_bq:
                 bam_arrays.bqs[idx] = (
-                    aln.query_qualities
+                    np.array(aln.query_qualities, dtype=np.uint8)
                     if aln.query_qualities is not None
                     else np.array([])
                 )
@@ -726,28 +731,3 @@ def walk_bam(
         return bam_arrays.df(idx=0)
 
     return pl.concat(chunks, rechunk=True)
-
-
-# if __name__ == "__main__":
-#     bam = sys.argv[1]
-#     bametadata = BAMetadata(bam)
-#     contig = "hla_a_01_01_01_01"
-#     # interval = Interval.create(contig, 0, 4000, seqmap=bametadata.seqmap())
-#     region_string = f"{contig}:0-4000"
-#     region_string = f"{contig}:100"
-#     rgs = {"NA18740"}
-#     df = walk_bam(
-#         bam,
-#         region_string,
-#         chunk_size=100,
-#         exclude=3584,
-#         read_groups=rgs,
-#         return_ecnt=True,
-#     )
-#     df = df.with_columns(
-#         pl.col("rnames").replace_strict(bametadata.idx2seqname())
-#     )
-#     print(df.shape)
-#     with pl.Config(fmt_str_lengths=1000, tbl_width_chars=1000) as cfg:
-#         print(df.head())
-#         print(df.tail())
