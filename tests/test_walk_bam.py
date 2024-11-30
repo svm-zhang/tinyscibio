@@ -193,7 +193,6 @@ def test_walk_bam(monkeypatch):
         return_md=True,
         return_qname=True,
     )
-    print(res_df)
     assert res_df.shape[0] == 3
     assert (
         res_df["rnames"].to_numpy() == np.array([0, 0, 0], dtype=np.uint16)
