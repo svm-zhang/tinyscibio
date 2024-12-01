@@ -1,6 +1,5 @@
 import itertools
 import re
-import sys
 from collections.abc import Sequence, Set
 from dataclasses import dataclass, field, fields
 from typing import Any, Optional, Union
@@ -10,7 +9,7 @@ import numpy.typing as npt
 import polars as pl
 import pysam
 
-from tinyscibio import parse_path
+from ._io import parse_path
 
 _MAX_CHUNK_SIZE = 100_000_000_000
 
@@ -545,26 +544,31 @@ def walk_bam(
     are 1-based.
 
     By default, walk_bam returns a dataframe with 7 columns:
-        1. rnames: reference index (easy to map back to sequence name)
-        2. rstarts: 0-based start position on mapped reference
-        3. rends: same as above but marking the end of an alignment
-        4. mqs: mapping qualities
-        5. propers: whether or not a given alignment is properly aligned
-        6. primarys: whether or not a given alignment is primary
-        7. sc_bps: # of soft-clipped base pairs
+
+        - rnames: reference index (easy to map back to sequence name)
+        - rstarts: 0-based start position on mapped reference
+        - rends: same as above but marking the end of an alignment
+        - mqs: mapping qualities
+        - propers: whether or not a given alignment is properly aligned
+        - primarys: whether or not a given alignment is primary
+        - sc_bps: # of soft-clipped base pairs
 
     When return_ecnt is set,
-        8. mm_ecnt: # of mismatch events per alignment
-        9. mm_ecnt: # of indel events per alignment
+
+        - mm_ecnt: # of mismatch events per alignment
+        - mm_ecnt: # of indel events per alignment
 
     When return_qname is set,
-        10. qnames: read name
+
+        - qnames: read name
 
     When return_bq is set,
-        11. bqs: base qualities in np.ndarray per alignment
+
+        - bqs: base qualities in np.ndarray per alignment
 
     When return_md is set,
-        12. mds: parsed MD in np.ndarray per alignment
+
+        - mds: parsed MD in np.ndarray per alignment
 
     Examples:
         >>> from tinyscibio import BAMetadata, walk_bam
