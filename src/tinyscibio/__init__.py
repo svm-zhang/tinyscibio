@@ -19,6 +19,8 @@ from .bam import (
     count_unaligned_events,
     parse_cigar,
     parse_md,
+    parse_region,
+    walk_bam,
 )
 
 __all__ = [
@@ -35,6 +37,8 @@ __all__ = [
     "count_mismatch_events",
     "count_soft_clip_bases",
     "count_indel_bases",
+    "parse_region",
+    "walk_bam",
     "bed_to_df",
     "find_overlaps",
     "NotSatisfyMinColReq",
