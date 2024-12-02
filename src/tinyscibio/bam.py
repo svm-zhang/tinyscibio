@@ -463,9 +463,9 @@ class _BamArrays:
                 case "mqs":
                     attrs[f_name] = np.zeros(chunk_size, dtype=np.uint8)
                 case "propers":
-                    attrs[f_name] = np.empty(chunk_size, dtype=bool)
+                    attrs[f_name] = np.full(chunk_size, False, dtype=bool)
                 case "primarys":
-                    attrs[f_name] = np.empty(chunk_size, dtype=bool)
+                    attrs[f_name] = np.full(chunk_size, False, dtype=bool)
                 case "sc_bps":
                     attrs[f_name] = np.zeros(chunk_size, dtype=np.int16)
                 case "qnames":
