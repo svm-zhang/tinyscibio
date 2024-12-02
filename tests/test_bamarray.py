@@ -92,6 +92,8 @@ def test_bamarray_create_with_chunk_size_larger_than_max(default_fields):
 )
 def test_bamarray_to_df_without_content(default_bamarray_df, chunk_size):
     bamarray = _BamArrays.create(chunk_size)
+    print(bamarray.df(idx=chunk_size))
+    print(default_bamarray_df)
     assert bamarray.df(idx=chunk_size).shape[0] == chunk_size
     assert bamarray.df(idx=chunk_size).equals(default_bamarray_df)
 
