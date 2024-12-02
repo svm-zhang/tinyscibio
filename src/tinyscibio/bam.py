@@ -20,7 +20,7 @@ class BAMetadata:
     A BAMetadata object holds metadata about a given BAM file.
 
     Examples:
-        Let us use a hypothetical coordiante-sorted BAM file with one read
+        Let us use a hypothetical coordinate-sorted BAM file with one read
         group and two references, as an example:
 
         >>> bametadata = BAMetadata("test.bam")
@@ -366,6 +366,28 @@ def count_mismatch_events(md: Union[str, Sequence[str]]) -> int:
 
 @dataclass
 class _BamArrays:
+    """
+    Arrays of a pre-defined size to store various aspects of alignments.
+
+    walk_bam() function uses _BamArrays to store relevant alignment data
+    during its traverse.
+
+    Attributes:
+        rnames: Array of indices of reference that a read is mapped to.
+        rstarts: Array of 0-based positions marking the beginning of an
+                 alignment on the reference.
+        rends: Array of positions on the reference marking the end of alignments.
+        mqs: Array of mapping qualities.
+        propers: Array of whether alignments are marked as properly mapped.
+        primarys: Array of whether alignments are marked as primary.
+        sc_bps: Array of number of soft-clipped bases.
+        qnames: Array of query/read names (not initiated by default).
+        mm_ecnt: Array of number of mismatch events (not initiated by default).
+        indel_ecnt: Array of number of indel events (not initiated by default).
+        bqs: Array of array of base qualities (not initiated by default).
+        mds: Array of parsed MDs (not initiated by default).
+    """
+
     rnames: npt.NDArray[np.uint16]
     rstarts: npt.NDArray[np.int32]
     rends: npt.NDArray[np.int32]
@@ -388,6 +410,39 @@ class _BamArrays:
         with_md: bool = False,
         with_qname: bool = False,
     ) -> "_BamArrays":
+        """
+        Create a _BamArrays object of pre-defined size.
+
+        By default, not all fields of _BamArrays object will be initialized.
+        The optional ones can be additionally initialized by using the
+        parameters prefixed with 'with_'.
+
+        The maximum array size allowed is defined by _MAX_CHUNK_SIZE, which
+        is 100_000_000_000.
+
+        Examples:
+
+            Create _BamArrays object with pre-defined size of 1000
+            >>> from tinyscibio.bam import _BamArrays
+            >>> chunk_size = 1_000
+            >>> bamarrays = _BamArrays.create(chunk_size=chunk_size)
+
+            Create _BamArrays object with pre-defined size of 1000, and also
+            initialize _BamArrays.mm_ecnt and _BamArrays.indel_ecnt arrays.
+            >>> from tinyscibio.bam import _BamArrays
+            >>> chunk_size = 1_000
+            >>> bamarrays = _BamArrays.create(chunk_size=chunk_size, with_ecnt=True)
+
+        Parameters:
+            chunk_size: Pre-defined size of arrays.
+            with_ecnt: Initialize _BamArrays.mm_ecnt and _BamArrays.indel_ecnt arrays.
+            with_bq: Initialize _BamArrays.bqs.
+            with_md: Initialize _BamArrays.mds.
+            with_qname: Initialize _BamArrays.qnames.
+
+        Raises:
+            ValueError: When given chunk_size is not a positive number.
+        """
         if chunk_size <= 0:
             raise ValueError(f"Given {chunk_size=} must be positive number.")
         # Put a upper cap on maximum chunk_size allowed
@@ -442,6 +497,22 @@ class _BamArrays:
         return cls(**attrs)
 
     def df(self, idx: int) -> pl.DataFrame:
+        """
+        Collect arrays of _BamArrays object into a polars DataFrame.
+
+        See doc of walk_bam for example dataframes returned by this function.
+
+        Parameters:
+            idx: Values of arrays up to this index will be collected.
+
+        Returns:
+            polars.DataFrame
+
+        Raises:
+            ValueError: When the given idx parameter is negatvie.
+            IndexError: When the given idx parameter is larger than
+                        the size of arrays.
+        """
         if idx < 0:
             raise ValueError(f"Given {idx=} must be positive")
         if idx > self.rnames.size:
