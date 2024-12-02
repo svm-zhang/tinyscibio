@@ -11,7 +11,7 @@ import pysam
 
 from ._io import parse_path
 
-_MAX_CHUNK_SIZE = 100_000_000_000
+_MAX_CHUNK_SIZE = 1_000_000
 
 
 @dataclass
@@ -418,7 +418,7 @@ class _BamArrays:
         parameters prefixed with 'with_'.
 
         The maximum array size allowed is defined by _MAX_CHUNK_SIZE, which
-        is 100_000_000_000.
+        is 1_000_000.
 
         Examples:
 
