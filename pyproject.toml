@@ -66,6 +66,7 @@ dev-dependencies = [
     "types-requests>=2.32.0.20240914",
     "tox>=4.23.0",
     "tox-gh-actions>=3.2.0",
+    "numpy-typing>=1.1.1",
 ]
 
 [tool.coverage]

@@ -40,7 +40,9 @@ ncls==0.0.68
     # via tinyscibio
 numpy==2.1.2
     # via ncls
+    # via numpy-typing
     # via tinyscibio
+numpy-typing==1.1.1
 packaging==24.1
     # via pyproject-api
     # via pytest
