@@ -37,8 +37,8 @@ def default_bamarray_df(request):
             "rstarts": np.zeros(chunk_size, dtype=np.int32),
             "rends": np.zeros(chunk_size, dtype=np.int32),
             "mqs": np.zeros(chunk_size, dtype=np.uint8),
-            "propers": np.empty(chunk_size, dtype=bool),
-            "primarys": np.empty(chunk_size, dtype=bool),
+            "propers": np.full(chunk_size, False, dtype=bool),
+            "primarys": np.full(chunk_size, False, dtype=bool),
             "sc_bps": np.zeros(chunk_size, dtype=np.int16),
         }
     )
@@ -93,10 +93,9 @@ def test_bamarray_create_with_chunk_size_larger_than_max(default_fields):
 def test_bamarray_to_df_without_content(default_bamarray_df, chunk_size):
     bamarray = _BamArrays.create(chunk_size)
     for c in default_bamarray_df.columns:
-        print(f"{c=}")
+        print(f"column {c=}")
         assert (bamarray.df(idx=chunk_size)[c] == default_bamarray_df[c]).all()
     assert bamarray.df(idx=chunk_size).shape[0] == chunk_size
-    # assert bamarray.df(idx=chunk_size).equals(default_bamarray_df)
 
 
 @pytest.mark.parametrize(
