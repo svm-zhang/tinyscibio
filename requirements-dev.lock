@@ -57,7 +57,7 @@ polars==1.12.0
     # via tinyscibio
 pyproject-api==1.8.0
     # via tox
-pysam==0.22.1
+pysam==0.23.0
     # via tinyscibio
 pytest==8.3.3
     # via pytest-cov
