@@ -9,7 +9,7 @@ import numpy.typing as npt
 import polars as pl
 import pysam
 
-from ._io import parse_path
+from tinyscibio._io import parse_path
 
 _MAX_CHUNK_SIZE = 1_000_000
 
@@ -396,6 +396,7 @@ class _BamArrays:
     primarys: npt.NDArray[np.bool]
     sc_bps: npt.NDArray[np.int16]
     qnames: npt.NDArray[np.object_]
+    qseqs: npt.NDArray[np.object_]
     mm_ecnt: npt.NDArray[np.int16]
     indel_ecnt: npt.NDArray[np.int16]
     bqs: npt.NDArray[np.uint8]
@@ -409,6 +410,7 @@ class _BamArrays:
         with_bq: bool = False,
         with_md: bool = False,
         with_qname: bool = False,
+        with_qseq: bool = False,
     ) -> "_BamArrays":
         """
         Create a _BamArrays object of pre-defined size.
@@ -472,6 +474,12 @@ class _BamArrays:
                     attrs[f_name] = (
                         np.empty(chunk_size, dtype="object")
                         if with_qname
+                        else np.array([])
+                    )
+                case "qseqs":
+                    attrs[f_name] = (
+                        np.empty(chunk_size, dtype="object")
+                        if with_qseq
                         else np.array([])
                     )
                 case "mm_ecnt" | "indel_ecnt":
@@ -605,6 +613,7 @@ def walk_bam(
     return_bq: bool = False,
     return_md: bool = False,
     return_qname: bool = False,
+    return_qseq: bool = False,
 ) -> pl.DataFrame:
     """
     Traverse BAM file across given region and collect read-level alignment
@@ -728,6 +737,7 @@ def walk_bam(
         with_bq=return_bq,
         with_md=return_md,
         with_qname=return_qname,
+        with_qseq=return_qseq,
     )
 
     rname, start, end = parse_region(region)
@@ -791,6 +801,8 @@ def walk_bam(
                 )
             if return_qname:
                 bam_arrays.qnames[idx] = aln.query_name
+            if return_qseq:
+                bam_arrays.qseqs[idx] = aln.query_sequence
             idx += 1
 
             if idx == chunk_size:
@@ -806,3 +818,16 @@ def walk_bam(
         return bam_arrays.df(idx=0)
 
     return pl.concat(chunks, rechunk=True)
+
+
+#
+#
+# if __name__ == "__main__":
+#     bam = "/Users/simo/work/bio/code/mhctyper/data/NA18740.hla.realn.so.bam"
+#     region = "hla_a_01_01_01_01"
+#
+#     df = walk_bam(
+#         bam, region, exclude=3840 - 256, return_qname=True, return_qseq=True,
+#     )
+#     with pl.Config(tbl_cols=-1, fmt_str_lengths=1000):
+#         print(df)
