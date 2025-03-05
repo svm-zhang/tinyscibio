@@ -75,6 +75,7 @@ class MockAlignmentFile:
         propers = [True, True, True, False]
         secondaries = [False, False, True, False]
         qnames = ["r1", "r2", "r3"]
+        qseqs = ["AA", "CC", "GG"]
         rgs = ["grp1", "grp2", "grp1", "grp1"]
         mds = [
             "75",
@@ -103,6 +104,7 @@ class MockAlignmentFile:
                         cigarstring=cigarstrings[i],
                         tags={"MD": mds[i], "RG": rgs[i]},
                         query_name=qnames[i],
+                        query_sequence=qseqs[i],
                         query_qualities=list(range(75)),
                     )
                 case 1:
@@ -117,6 +119,7 @@ class MockAlignmentFile:
                         cigarstring=cigarstrings[i],
                         tags={"MD": mds[i], "RG": rgs[i]},
                         query_name=qnames[i],
+                        query_sequence=qseqs[i],
                         query_qualities=list(range(75)),
                     )
                 case 2:
@@ -131,6 +134,7 @@ class MockAlignmentFile:
                         cigarstring=None,
                         tags={"RG": rgs[i]},
                         query_name=qnames[i],
+                        query_sequence=qseqs[i],
                         query_qualities=None,
                     )
                 case 3:
@@ -145,6 +149,7 @@ class MockAlignmentFile:
                         cigarstring=None,
                         tags={"RG": rgs[i]},
                         query_name=None,
+                        query_sequence=None,
                         query_qualities=list(range(75)),
                     )
 
@@ -163,6 +168,7 @@ class MockAlignmentSegment:
     reference_end: Optional[int] = None
     cigarstring: Optional[str] = None
     query_name: Optional[str] = None
+    query_sequence: Optional[str] = None
     query_qualities: Optional[list[int]] = None
 
     def get_tag(self, tag: str) -> Optional[str]:
@@ -192,6 +198,7 @@ def test_walk_bam(monkeypatch):
         return_bq=True,
         return_md=True,
         return_qname=True,
+        return_qseq=True,
     )
     assert res_df.shape[0] == 3
     assert (
@@ -227,6 +234,10 @@ def test_walk_bam(monkeypatch):
     assert (
         res_df["qnames"].to_numpy()
         == np.array(["r1", "r2", "r3"], dtype="object")
+    ).all()
+    assert (
+        res_df["qseqs"].to_numpy()
+        == np.array(["AA", "CC", "GG"], dtype="object")
     ).all()
     assert [
         np.array_equal(arr1, arr2)
