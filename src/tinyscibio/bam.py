@@ -396,6 +396,7 @@ class _BamArrays:
     primarys: npt.NDArray[np.bool]
     sc_bps: npt.NDArray[np.int16]
     qnames: npt.NDArray[np.object_]
+    qseqs: npt.NDArray[np.object_]
     mm_ecnt: npt.NDArray[np.int16]
     indel_ecnt: npt.NDArray[np.int16]
     bqs: npt.NDArray[np.uint8]
@@ -409,6 +410,7 @@ class _BamArrays:
         with_bq: bool = False,
         with_md: bool = False,
         with_qname: bool = False,
+        with_qseq: bool = False,
     ) -> "_BamArrays":
         """
         Create a _BamArrays object of pre-defined size.
@@ -439,6 +441,7 @@ class _BamArrays:
             with_bq: Initialize _BamArrays.bqs.
             with_md: Initialize _BamArrays.mds.
             with_qname: Initialize _BamArrays.qnames.
+            with_qseq: Initialize _BamArrays.qseqs.
 
         Raises:
             ValueError: When given chunk_size is not a positive number.
@@ -472,6 +475,12 @@ class _BamArrays:
                     attrs[f_name] = (
                         np.empty(chunk_size, dtype="object")
                         if with_qname
+                        else np.array([])
+                    )
+                case "qseqs":
+                    attrs[f_name] = (
+                        np.empty(chunk_size, dtype="object")
+                        if with_qseq
                         else np.array([])
                     )
                 case "mm_ecnt" | "indel_ecnt":
@@ -605,6 +614,7 @@ def walk_bam(
     return_bq: bool = False,
     return_md: bool = False,
     return_qname: bool = False,
+    return_qseq: bool = False,
 ) -> pl.DataFrame:
     """
     Traverse BAM file across given region and collect read-level alignment
@@ -632,6 +642,10 @@ def walk_bam(
     When return_qname is set,
 
         - qnames: read name
+
+    When return_qseq is set,
+
+        - qseqs: read sequence
 
     When return_bq is set,
 
@@ -717,6 +731,7 @@ def walk_bam(
         return_bq: Whether or not returning base qualities.
         return_md: Whether or not returning parsed MD tuples.
         return_qname: Whether or not returning query/read names.
+        return_qseq: Whether or not returning query/read sequences.
 
     Returns:
         Collection of summaries of read alignments in dataframe.
@@ -728,6 +743,7 @@ def walk_bam(
         with_bq=return_bq,
         with_md=return_md,
         with_qname=return_qname,
+        with_qseq=return_qseq,
     )
 
     rname, start, end = parse_region(region)
@@ -791,6 +807,8 @@ def walk_bam(
                 )
             if return_qname:
                 bam_arrays.qnames[idx] = aln.query_name
+            if return_qseq:
+                bam_arrays.qseqs[idx] = aln.query_sequence
             idx += 1
 
             if idx == chunk_size:

@@ -20,7 +20,7 @@ def default_fields():
 
 @pytest.fixture
 def optional_fields():
-    return ["qnames", "mm_ecnt", "indel_ecnt", "bqs", "mds"]
+    return ["qnames", "qseqs", "mm_ecnt", "indel_ecnt", "bqs", "mds"]
 
 
 @pytest.fixture
@@ -62,7 +62,12 @@ def test_bamarray_create_with_optional(
 ):
     chunk_size = 10
     bamarray = _BamArrays.create(
-        chunk_size, with_ecnt=True, with_bq=True, with_md=True, with_qname=True
+        chunk_size,
+        with_ecnt=True,
+        with_bq=True,
+        with_md=True,
+        with_qname=True,
+        with_qseq=True,
     )
 
     for f in default_fields + optional_fields:
