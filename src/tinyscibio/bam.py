@@ -441,6 +441,7 @@ class _BamArrays:
             with_bq: Initialize _BamArrays.bqs.
             with_md: Initialize _BamArrays.mds.
             with_qname: Initialize _BamArrays.qnames.
+            with_qseq: Initialize _BamArrays.qseqs.
 
         Raises:
             ValueError: When given chunk_size is not a positive number.
@@ -642,6 +643,10 @@ def walk_bam(
 
         - qnames: read name
 
+    When return_qseq is set,
+
+        - qseqs: read sequence
+
     When return_bq is set,
 
         - bqs: base qualities in np.ndarray per alignment
@@ -726,6 +731,7 @@ def walk_bam(
         return_bq: Whether or not returning base qualities.
         return_md: Whether or not returning parsed MD tuples.
         return_qname: Whether or not returning query/read names.
+        return_qseq: Whether or not returning query/read sequences.
 
     Returns:
         Collection of summaries of read alignments in dataframe.
@@ -818,16 +824,3 @@ def walk_bam(
         return bam_arrays.df(idx=0)
 
     return pl.concat(chunks, rechunk=True)
-
-
-#
-#
-# if __name__ == "__main__":
-#     bam = "/Users/simo/work/bio/code/mhctyper/data/NA18740.hla.realn.so.bam"
-#     region = "hla_a_01_01_01_01"
-#
-#     df = walk_bam(
-#         bam, region, exclude=3840 - 256, return_qname=True, return_qseq=True,
-#     )
-#     with pl.Config(tbl_cols=-1, fmt_str_lengths=1000):
-#         print(df)
