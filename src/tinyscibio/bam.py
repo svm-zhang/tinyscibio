@@ -9,7 +9,7 @@ import numpy.typing as npt
 import polars as pl
 import pysam
 
-from tinyscibio._io import parse_path
+from ._io import parse_path
 
 _MAX_CHUNK_SIZE = 1_000_000
 
