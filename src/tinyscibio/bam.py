@@ -754,10 +754,6 @@ def walk_bam(
     with pysam.AlignmentFile(fspath, "rb") as bamf:
         idx = 0
         for aln in bamf.fetch(contig=rname, start=start, stop=end):
-            # Make sure to only grab alignments at and after given start
-            # position and before given end position
-            if aln.reference_start < start:
-                continue
             if aln.query_name is None:
                 continue
             # Skip records whose read group is not defined in read_groups
