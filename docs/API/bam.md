@@ -5,7 +5,7 @@
         filters:
             - "!^_"
             - "!^__"
-        member:
+        members:
             - BAMetadata
             - parse_cigar
             - parse_md
@@ -14,3 +14,5 @@
             - count_indel_events
             - count_indel_bases
             - count_mismatch_events
+            - parse_region
+            - walk_bam

@@ -5,6 +5,6 @@
         filters:
             - "!^_"
             - "!^__"
-        member:
+        members:
             - find_overlaps
             - bed_to_df
