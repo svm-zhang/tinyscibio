@@ -6,13 +6,13 @@ on:
       - main
     paths-ignore:
       - "docs/**"
-      - mkdocs.yml
+      - zensical.toml
   pull_request:
     branches:
       - main
     paths-ignore:
       - "docs/**"
-      - mkdocs.yml
+      - zensical.toml
   workflow_dispatch:
 
 jobs:

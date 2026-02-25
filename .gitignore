@@ -20,3 +20,6 @@ wheels/
 
 # auto generated version file during package build
 _version.py
+
+# documentation site
+site/

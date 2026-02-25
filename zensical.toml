@@ -1,0 +1,102 @@
+[project]
+site_name = "tinyscibio"
+site_description = "Bioinformatic library for bioscience"
+site_author = "Simo V. Zhang"
+site_url = "https://svm-zhang.github.io/tinyscibio/"
+repo_name = "svm-zhang/tinyscibio"
+repo_url = "https://github.com/svm-zhang/tinyscibio"
+edit_uri = "edit/main/docs"
+copyright = """
+Copyright &copy; 2026 tinyscibio author
+"""
+extra_css = ["stylesheets/extra.css"]
+
+# Section for navigation configuration
+nav = [
+  {"Home" = "index.md"},
+  {"API reference" = [
+    { "Alignment in BAM" = "API/bam.md" },
+    { "REST API server" = "API/api_server.md" },
+    { "File system" = "API/io.md" },
+    { "Intervals" = "API/intervals.md" }
+  ]}
+]
+
+# Section for theme configuration
+[project.theme]
+font = false
+language = "en"
+
+features = [
+  "announce.dismiss",
+  "content.action.edit",
+  "content.action.view",
+  "content.code.annotate",
+  "content.code.copy",
+  "content.code.select",
+  "content.footnote.tooltips",
+  "content.tabs.link",
+  "header.autohide",
+  "navigation.expand",
+  "navigation.path",
+  "navigation.sections",
+  "navigation.top",
+  "navigation.tracking",
+  "search.highlight",
+  "toc.follow",
+  "toc.integrate"
+]
+
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to light mode"
+
+[project.theme.icon]
+repo = "fontawesome/brands/github"
+edit = "lucide/pencil"
+view = "lucide/view"
+
+# Section for markdown extension configuration 
+[project.markdown_extensions.admonition]
+[project.markdown_extensions.pymdownx.details]
+[project.markdown_extensions.pymdownx.superfences]
+custom_fences = [
+  { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format"}
+]
+[project.markdown_extensions.pymdownx.highlight]
+anchor_linenums = true
+line_spans = "__span"
+pygments_lang_class = true
+[project.markdown_extensions.pymdownx.tabbed]
+alternate_style = true
+combine_header_slug = true
+[project.markdown_extensions.pymdownx.tabbed.slugify]
+object = "pymdownx.slugs.slugify"
+kwds = { case = "lower" }
+
+
+# Section for mkdocstring plugin configuration
+[project.plugins.mkdocstrings.handlers.python]
+paths = ["src"]
+
+[project.plugins.mkdocstrings.handlers.python.options]
+docstring_style = "google"
+merge_init_into_class = true
+show_source = false
+show_docstring_examples = true
+show_root_toc_entry = false
+show_symbol_type_toc = true
+show_symbol_type_heading = true
+
+[project.plugins.mkdocstrings.handler.python.options.docstring_options]
+ignore_init_summary = true
+

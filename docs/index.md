@@ -2,7 +2,6 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/tinyscibio)](https://pypi.org/project/tinyscibio/)
 ![Python versions](https://img.shields.io/pypi/pyversions/tinyscibio)
-[![PyPI Downloads](https://img.shields.io/pypi/dm/tinyscibio)](https://pypistats.org/packages/tinyscibio)
 ![License](https://img.shields.io/pypi/l/tinyscibio)
 
 Convenient shortcut functions to boost daily bioinformatics tasks.
