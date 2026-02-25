@@ -29,7 +29,7 @@ jobs:
           python-version: 3.x
       - name: Install and Build
         run: |
-          pip install zensical
+          pip install zensical mkdocstrings-python
           zensical build --clean
       - name: Upload
         uses: actions/upload-pages-artifact@v4
